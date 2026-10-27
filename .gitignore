@@ -1,0 +1,27 @@
+# --- Reference material, not ours to redistribute -------------------------
+*.pdf
+!docs/*.pdf
+[Wiley Finance Series]*
+
+# --- Python ---------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# --- Jupyter --------------------------------------------------------------
+.ipynb_checkpoints/
+
+# --- Editors / OS ---------------------------------------------------------
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Notes ----------------------------------------------------------------
+# data/, figures/ and results/ ARE tracked on purpose. The cached price file makes
+# the project reproducible without network access, and the committed figures and
+# CSVs are the record the supervisor reviews against the submitted reports.
