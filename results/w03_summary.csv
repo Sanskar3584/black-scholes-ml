@@ -1,0 +1,14 @@
+seed,20260825
+module_self_test_passed,True
+dS2_ratio_at_n_1e6,0.9975131612890775
+ito_W2_max_abs_error,1.2323475573339238e-14
+ordinary_calculus_error,1.0012249655341874
+ordinary_error_theory_T,1.0
+logS_correction_observed,-0.06138474539205979
+logS_correction_theory,-0.06124999999999999
+hedged_sd_spread_over_mu,0.07543641596751088
+unhedged_mean_spread_over_mu,26.5550241450623
+pde_max_abs_residual,3.3430079689367176e-05
+parity_max_abs_error,4.263256414560601e-14
+parity_grid_points,13500
+all_monotonicity_checks,True

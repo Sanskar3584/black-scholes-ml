@@ -1,0 +1,19 @@
+# Normalise line endings in the repository to LF. Without this, a file that an
+# editor happens to rewrite with CRLF on Windows shows up as a diff on every
+# line, which buries the real change.
+* text=auto
+
+*.py      text eol=lf
+*.md      text eol=lf
+*.txt     text eol=lf
+*.csv     text eol=lf
+*.ipynb   text eol=lf
+*.js      text eol=lf
+
+# Binary: never touch these.
+*.png     binary
+*.jpg     binary
+*.pdf     binary
+*.docx    binary
+*.xlsx    binary
+*.pptx    binary

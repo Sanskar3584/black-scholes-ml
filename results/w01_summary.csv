@@ -1,0 +1,15 @@
+asset,^NSEI
+data_source,yfinance
+start,2015-01-02
+end,2024-12-31
+n_observations,2459
+n_returns,2458
+seed,20260825
+mean_log_return,0.0004212584763877047
+std_log_return,0.010544510330737828
+annualised_vol,0.16738891219250238
+skewness,-1.407643344280755
+excess_kurtosis,20.413236235271683
+jarque_bera_p,0.0
+max_abs_approx_error,0.009232903905799617
+approx_error_slope,2.000049860468919

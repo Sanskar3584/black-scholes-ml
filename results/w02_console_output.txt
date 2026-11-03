@@ -1,0 +1,308 @@
+==============================================================================
+SEPTEMBER WEEK 1 - BROWNIAN MOTION AND GEOMETRIC BROWNIAN MOTION
+September plan section 15.4
+==============================================================================
+
+NOTE: figure windows will open and the script pauses until each is
+closed. There are 10 figures. Set SHOW_PLOTS = False to skip this.
+
+==============================================================================
+PART A / 1.  STANDARD NORMAL RANDOM VARIABLES   (task 1)
+==============================================================================
+  n            1,000,000
+  mean         +0.000458   (theory 0)
+  variance     0.996596   (theory 1)
+  skewness     -0.003274   (theory 0)
+  ex. kurtosis +0.001145   (theory 0)
+
+  |mean| / (1/sqrt(n)) = 0.458 standard errors
+  Jarque-Bera on first 5000: p = 0.499  (consistent with normal)
+
+==============================================================================
+PART A / 2.  BROWNIAN INCREMENTS  dW = sqrt(dt) Z   (task 2)
+==============================================================================
+  dt = 0.003968,  n = 10,000
+  mean(dW)  +0.00028207   (theory 0)
+  var(dW)   0.00400866   (theory dt       = 0.00396825)
+  sd(dW)    0.06331401   (theory sqrt(dt) = 0.06299408)
+
+==============================================================================
+PART A / 3.  COMPLETE BROWNIAN-MOTION PATHS   (task 3)
+==============================================================================
+  8 paths plotted, 1000 steps, T = 1.0,  W_0 = 0 for all
+
+  W_T moments from 2,000 paths (8 is far too few to test):
+    mean  +0.0068   theory 0        (0.31 standard errors)
+    sd    0.9690   theory sqrt(T) = 1.0000
+    Jarque-Bera p = 0.978
+
+==============================================================================
+PART A / 4.  MOMENTS AND DEPENDENCE ON dt   (tasks 4-7)
+==============================================================================
+          dt     mean(dW)  mean / s.e.      var(dW)     var / dt       sd(dW)  sd / sqrt(dt)
+    1.000000    -0.002298    -1.027756     1.006092     1.006092     1.003042       1.003042
+    0.500000    -0.001782    -1.127296     0.502425     1.004850     0.708820       1.002422
+    0.250000    -0.000722    -0.645457     0.250823     1.003293     0.500823       1.001645
+    0.083333    -0.001363    -2.112282     0.083402     1.000826     0.288794       1.000413
+    0.019231    -0.000076    -0.246009     0.019187     0.997726     0.138517       0.998862
+    0.003968    -0.000126    -0.896376     0.003973     1.001292     0.063035       1.000646
+    0.001000     0.000127     1.794366     0.000999     0.998646     0.031601       0.999323
+    0.000200    -0.000012    -0.388341     0.000200     0.998266     0.014130       0.999132
+    0.000050    -0.000030    -1.914489     0.000050     1.002644     0.007080       1.001321
+
+  Task 4:  the raw mean shrinks with dt only because the scale shrinks.
+           The scale-free test is 'mean / s.e.', which stays O(1).
+  Task 5:  max |var/dt - 1| = 0.0061
+
+  Task 7:  log SD(dW) = a + b log(dt)
+           slope b     0.500245  +/- 0.000127   (theory 0.5)
+           intercept a +0.001825                 (theory 0)
+           R^2         1.000000
+
+==============================================================================
+PART A / 5.  INDEPENDENCE AND STATIONARITY   [additional]
+==============================================================================
+  Autocorrelation of increments (theory: 0 at all non-zero lags)
+    lag  1   -0.00207
+    lag  2   +0.00196
+    lag  3   +0.00213
+    lag  4   -0.00120
+    lag  5   +0.00046
+    lag  6   +0.00268
+    lag  7   -0.00426
+    lag  8   +0.00196
+    lag  9   -0.00058
+    lag 10   -0.00267
+    95% band  +/-0.00438
+
+  Stationarity: moments across 8 equal blocks
+     block          mean            sd
+         1     -0.001061      0.063199
+         2      0.000586      0.063024
+         3     -0.000683      0.063247
+         4     -0.000267      0.063259
+         5     -0.000184      0.062984
+         6      0.000191      0.063659
+         7      0.000425      0.062989
+         8      0.000201      0.062359
+    spread of block SDs: 0.001300  (compare sqrt(dt) = 0.062994)
+
+==============================================================================
+PART A / 6.  QUADRATIC VARIATION   [additional, for Week 2]
+==============================================================================
+ n steps             dt     sum (dW)^2     s.e. of QV  (QV - T)/s.e.       sum |dW|     sum (dW)^3
+      10       0.100000       1.275320       0.447214       0.615634       2.920918       0.427903
+      50       0.020000       1.097047       0.200000       0.485233       6.125669      -0.027453
+     100       0.010000       1.113638       0.141421       0.803545       8.518441      -0.021586
+     500       0.002000       0.899769       0.063246      -1.584793      16.999934      -0.004654
+    1000       0.001000       1.018547       0.044721       0.414713      25.475883      -0.002834
+    5000       0.000200       0.980425       0.020000      -0.978768      55.851114       0.000947
+   10000       0.000100       1.006502       0.014142       0.459779      80.093758       0.000378
+   50000       0.000020       0.993784       0.006325      -0.982844     177.908187       0.000043
+  100000       0.000010       0.994982       0.004472      -1.121955     251.298695       0.000055
+
+  max |(QV - T)/s.e.| = 1.58   <- stays O(1): this is L^2 convergence
+
+  sum (dW)^2  ->  T = 1.0      [quadratic variation FINITE and non-zero]
+  sum |dW|    ->  infinity      [first variation INFINITE]
+  sum (dW)^3  ->  0             [higher orders vanish]
+
+  For a smooth function the (dx)^2 term in a Taylor expansion is discarded.
+  For Brownian motion it cannot be: (dW)^2 accumulates at rate dt, written
+  compactly as (dW)^2 = dt. Keeping it is the whole difference between
+  ordinary and Ito calculus, and it produces the term
+      (1/2) sigma^2 S^2 V_SS
+  in the Black-Scholes PDE. See September plan section 15.5.3, question 2.
+
+  sum |dW| -> infinity says Brownian paths have infinite length over any
+  interval: continuous everywhere, differentiable nowhere. That is why
+  dW/dt does not exist and stochastic calculus is needed at all.
+
+==============================================================================
+PART B / 7.  GBM SIMULATION AND VALIDATION   (15.4.3)
+==============================================================================
+  S0=100.0, mu=0.1, sigma=0.2, T=1.0, 200,000 paths x 252 steps
+
+  quantity             simulated          theory    rel. error
+  E[S_T]              110.489953      110.517092      2.46e-04
+  Var(S_T)            495.911007      498.463922      5.12e-03
+  E[ln S_T]             4.684994        4.685170      3.76e-05
+  Var(ln S_T)           0.039884        0.040000      2.91e-03
+
+  ln S_T normality: Jarque-Bera p = 0.136
+  => S_T is lognormal, ln S_T is normal, exactly as the model states.
+
+  One-step log returns (dt = 1/252):
+    mean      +0.00031676   theory +0.00031746
+    variance  0.00015867   theory 0.00015873
+
+==============================================================================
+PART B / 8.  THE ROLES OF mu AND sigma   (15.4.3)
+==============================================================================
+  Reading the grid:
+    across a row  (mu increases)    -> the bundle tilts upward;
+                                       the spread is unchanged.
+    down a column (sigma increases) -> the bundle fans out, AND the
+                                       median falls away from the mean.
+
+  mu    sets the trend.
+  sigma sets the dispersion - and through -sigma^2/2 also drags the
+        median below the mean. At sigma = 0.40 the median grows at 2%
+        while the mean grows at 10%.
+
+==============================================================================
+PART B / 9.  THE TWO DRIFTS: mu VERSUS mu - sigma^2/2
+==============================================================================
+        sigma  growth of E[S_T]     theory mu   E[ln S_T]/T  theory mu - s^2/2           gap     sigma^2/2          s.e.
+     0.050000          0.099922      0.100000      0.098672           0.098750      0.001250      0.001250      0.000112
+     0.100000          0.100071      0.100000      0.095073           0.095000      0.004998      0.005000      0.000224
+     0.200000          0.100104      0.100000      0.080137           0.080000      0.019967      0.020000      0.000447
+     0.300000          0.099942      0.100000      0.055091           0.055000      0.044852      0.045000      0.000671
+     0.400000          0.098677      0.100000      0.018637           0.020000      0.080040      0.080000      0.000894
+     0.600000          0.100383      0.100000     -0.079121          -0.080000      0.179504      0.180000      0.001342
+
+  max |gap - sigma^2/2|        = 4.96e-04
+  max |gap - sigma^2/2| / s.e. = 0.37   <- within Monte Carlo error at every sigma
+
+  In the MODEL this identity is EXACT:
+      E[ln S_T] = ln S_0 + (mu - sigma^2/2) T
+  holds for every sigma with no approximation. It comes from Ito's lemma
+  applied to f = ln S, where (1/2) f''(S) (dS)^2 survives because
+  (dW)^2 = dt - the quadratic-variation property measured in section 9.
+
+  CONTRAST WITH WEEK 1.  The empirical gap mean(R) - mean(r) found in the
+  NIFTY data is a Taylor/Jensen identity in sample moments, true of any
+  small numbers whatsoever and requiring no probability model. This one is
+  a statement about the continuous-time process, exact at all sigma, and it
+  is what Ito's lemma actually asserts. The two agree numerically under
+  GBM; they are not the same statement.
+
+==============================================================================
+PART B / 10. CALIBRATION TO NIFTY 50   (15.4.4)
+==============================================================================
+  loaded 2,459 rows from cache: data/nifty50_prices.csv
+  period                 2015-01-02 to 2024-12-31
+  observations           2,458
+  daily mean log return  +0.00042126
+  daily sd  log return   0.01054451
+  annualised sigma       0.167389   (plan 15.4.4 quotes 0.167)
+  annualised mu          0.120167
+
+  mu - sigma^2/2 = 0.106157 matches the empirical annualised
+  mean log return  0.106157.
+  GBM is therefore matched on BOTH first and second moments. Anything it
+  then fails to reproduce is a genuine failure, not a calibration artefact.
+
+==============================================================================
+PART B / 11. MODEL-VERSUS-DATA EXPERIMENT   (15.4.5)
+==============================================================================
+  Both samples: n = 2,458 daily log returns
+
+                    NIFTY 50          GBM   difference
+statistic                                             
+mean                0.000421     0.000381    -0.000040
+std deviation       0.010545     0.010840     0.000295
+annualised vol      0.167389     0.172076     0.004687
+skewness           -1.407643    -0.021647     1.385997
+excess kurtosis    20.413236     0.165022   -20.248214
+minimum            -0.139038    -0.037110     0.101928
+maximum             0.084003     0.039072    -0.044931
+
+  Mean and standard deviation agree - they were the calibration targets.
+  Skewness and kurtosis do not, and were never targeted.
+
+  Normality tests
+    sample           Jarque-Bera       p-value     verdict
+    NIFTY 50           43,304.26     0.000e+00      REJECT
+    GBM                     2.89     2.360e-01          ok
+
+  Tail event frequencies
+     threshold   NIFTY obs   GBM obs  normal exp  NIFTY ratio  GBM ratio
+       |z| > 2          97       115      111.84          0.9x       1.0x
+       |z| > 3          29        11        6.64          4.4x       1.7x
+       |z| > 4          15         0        0.16         96.3x       0.0x
+       |z| > 5          10         0        0.00       7096.3x       0.0x
+
+==============================================================================
+PART B / 12. INTERPRETATION OF MODEL LIMITATIONS   (15.4.6)
+==============================================================================
+
+  PRINCIPAL QUESTION (15.4.5)
+      If GBM is calibrated to the same mean and volatility, does it reproduce
+      the distributional behaviour observed in the actual market data?
+
+  ANSWER:  No.
+
+  What GBM reproduces
+      - the mean and the standard deviation, exactly - but only because these
+        were the calibration targets, so this is not evidence in its favour;
+      - positivity of prices, which is why the process is geometric;
+      - the broad visual character of a price path over long horizons.
+
+  What GBM fails to reproduce
+      - SKEWNESS.  GBM gives approximately 0 by construction. NIFTY is close to
+        -1.41: large falls dominate large rises.
+      - KURTOSIS.  GBM gives approximately 0 excess. NIFTY exceeds 20.
+      - TAIL FREQUENCIES.  Beyond four and five standard deviations the market
+        delivered 15 and 10 days respectively; the model produced none.
+      - VOLATILITY CLUSTERING.  GBM increments are i.i.d., so |returns| are
+        uncorrelated at every lag. NIFTY shows strong, slowly decaying positive
+        autocorrelation in |returns|. Volatility is not constant.
+
+  WHY THIS MATTERS FOR THE PROJECT
+      Black-Scholes is derived under exactly these dynamics and inherits every
+      one of these failures. Two consequences follow directly:
+
+        1. A single constant sigma cannot price all strikes consistently.
+           Inverting the formula on market prices returns different implied
+           volatilities at different strikes - the volatility smile - which is
+           logically impossible if the model is true. Met in September Week 3
+           (15.6.3) and again with real option data in October.
+
+        2. Tail risk is understated. A model assigning probability ~5.7e-7 to a
+           five-sigma day, in a market that delivers them roughly annually, will
+           misprice deep out-of-the-money options and understate portfolio risk
+           under stress. This is the subject of the November market-risk stage.
+
+  POSITION GOING INTO SEPTEMBER WEEK 2
+      These failures are now measured, not assumed. Week 2 (15.5) derives the
+      Black-Scholes PDE from these same dynamics via Ito's lemma and delta
+      hedging. Having quantified the gaps first, the derivation can be understood
+      as a rigorous consequence of assumptions already known to be false in
+      specific, measurable ways - which is the difference between using a model
+      and believing it.
+
+
+==============================================================================
+SUMMARY
+==============================================================================
+  seed                         20260825
+  sd_scaling_exponent          0.5002446221487858
+  sd_scaling_theory            0.5
+  max_|var/dt - 1|             0.006092382468204427
+  max_|autocorrelation|        0.004262641495162346
+  acf_95pct_band               0.004382693235899588
+  QV_at_n=100000               0.9949824668871456
+  QV_theory                    1.0
+  max_|QV normalised dev|      1.5847931760107252
+  first_variation_n=100000     251.29869517749484
+  nifty_annualised_sigma       0.16738891219250238
+  nifty_annualised_mu          0.12016666001219622
+  n_returns                    2458
+  nifty_skewness               -1.407643344280755
+  gbm_skewness                 -0.021646618337513662
+  nifty_excess_kurtosis        20.413236235271683
+  gbm_excess_kurtosis          0.16502174348153398
+  nifty_jarque_bera_p          0.0
+  gbm_jarque_bera_p            0.23601429759664028
+  nifty_days_beyond_4sigma     15
+  gbm_days_beyond_4sigma       0
+  nifty_days_beyond_5sigma     10
+  gbm_days_beyond_5sigma       0
+  max_two_drift_error          0.0004962038062145679
+
+  runtime 365.3 s
+
+Saved: results/w02_*.csv   Figures: figures/w02_*.png
+
+Full console output written to: results/w02_console_output.txt

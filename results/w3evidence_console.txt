@@ -1,0 +1,89 @@
+==============================================================================
+WEEK 3 EVIDENCE PACK  -  STAGE GATE 1
+Required by 31 October 2026
+==============================================================================
+
+==============================================================================
+ITEM 1  -  FINITE-DIFFERENCE VS ANALYTIC GREEKS
+==============================================================================
+  126 parameter combinations: 2 option types x 7 spots x 3 maturities x 3 volatilities
+  Step sizes: h = 1e-04 for Delta and Vega, h = 1e-02 for Gamma
+
+     Greek     max abs error     max rel error    step size
+     delta         1.600e-10         1.960e-09        1e-04
+     gamma         7.098e-09         1.176e-05        1e-02
+      vega         5.033e-06         2.827e-05        1e-04
+
+  Step sizes were chosen from the Week 3 scan, not arbitrarily:
+  the error in h is V-shaped, and a smaller h is worse, not better.
+
+==============================================================================
+ITEM 2  -  ERROR AGAINST STEP SIZE
+==============================================================================
+    quantity     optimal h     min error    error at h=1e-12
+       delta      1.00e-04      2.10e-12            1.28e-02
+       gamma      1.00e-02      1.70e-11            7.11e+09
+        vega      5.62e-06      3.66e-11            5.58e-03
+
+  truncation-branch slope (theory +2):  delta 2.000, gamma 2.000, vega 2.010
+
+  Scaled theoretical optimum against the observed optimum
+    quantity   bumped    scaled reference     observed    ratio
+       delta        S            6.06e-04     1.00e-04     0.17
+       gamma        S            1.22e-02     1.00e-02     0.82
+        vega    sigma            1.51e-06     5.62e-06     3.71
+    Gamma is the sharpest test, because its optimum is furthest from machine epsilon.
+
+  Saved greeks_plots/fd_step_size_study.png
+
+==============================================================================
+ITEM 3  -  TRUE VS RECOVERED SIGMA, INCLUDING LOW-VEGA CASES
+==============================================================================
+  case                      true s      price        vega   recovered    abs err  iters     method
+  ATM, 1 year                 0.25  12.335999   3.784e+01  0.25000000   1.39e-16      4     newton
+  ATM, 1 year, low vol        0.10   6.804958   3.429e+01  0.10000000   2.22e-16      5     newton
+  ATM, 1 year, high vol       0.60  25.523206   3.707e+01  0.60000000   0.00e+00      4     newton
+  ITM, 1 year                 0.25  27.406343   2.746e+01  0.25000000   7.22e-16      6     newton
+  OTM, 1 year                 0.25   4.784110   3.216e+01  0.25000000   3.89e-16      5     newton
+  ATM, 1 month                0.25   3.018832   1.124e+01  0.25000000   3.33e-16      3     newton
+  OTM, 3 months               0.25   1.563092   1.424e+01  0.25000000   5.55e-16      5     newton
+  deep OTM, 3 months          0.25   0.009226   3.738e-01  0.25000000   2.78e-16     10     newton
+  deep OTM, 1 month           0.20   0.000063   5.548e-03  0.20000000   2.53e-15     15     newton
+  deep ITM, 1 month           0.20  30.399203   1.967e-04  0.20000000   1.52e-10     19     newton
+  very deep OTM, 1 week       0.15   0.000000   1.340e-12    REJECTED          -      0     failed
+
+  recovered 10 of 11 cases
+  max absolute error      1.520e-10
+  bisection used in       0 cases
+
+  LOW-VEGA CASES (vega < 1.0): 4
+    deep OTM, 3 months         vega 3.74e-01  recovered 0.250000  method newton
+    deep OTM, 1 month          vega 5.55e-03  recovered 0.200000  method newton
+    deep ITM, 1 month          vega 1.97e-04  recovered 0.200000  method newton
+    very deep OTM, 1 week      vega 1.34e-12  recovered REJECTED  method failed
+      reason: price at intrinsic: sigma -> 0, no finite solution
+
+  The pattern is the one established in the Week 3 report: accuracy is governed
+  by vega, because delta_sigma ~ residual / vega. Where vega is of order 1 or
+  more the recovery is exact to machine precision. As vega falls the iteration
+  count rises - 4 iterations at vega ~ 38, rising to 19 at vega ~ 2e-04 - and the
+  error grows with it, reaching 1.5e-10 in the deep in-the-money one-month case.
+
+  Where the price equals the intrinsic value to within double precision, no
+  finite sigma exists and the solver rejects the case with a stated reason
+  rather than returning a fabricated volatility. That is the last row.
+
+  On these 11 hand-picked cases the safeguarded Newton iteration succeeded
+  wherever a solution existed, so bisection was invoked 0 times. The fallback
+  is not idle: over the 3,000-case random study in the Week 3 report it handled
+  1.2% of options overall, rising to 28.6% in the lowest vega band. These eleven
+  cases are chosen to span the regimes, not to sample them in proportion.
+
+==============================================================================
+FILES FOR SUBMISSION
+==============================================================================
+  greeks.py
+  implied_volatility.py
+  greeks_plots/fd_step_size_study.png
+  results/w3evidence_fd_errors.csv
+  results/w3evidence_iv_recovery.csv

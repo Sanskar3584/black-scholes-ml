@@ -1,0 +1,195 @@
+==============================================================================
+POST-MIDSEM WEEK 5 - MONTE CARLO AND THREE-METHOD VALIDATION
+Week 5 task sheet, due 3 November 2026
+==============================================================================
+
+==============================================================================
+TASK 1  -  monte_carlo.py SELF-TEST
+==============================================================================
+  Acceptance criterion: at M = 1,000,000 the Black-Scholes price lies inside the 95% interval
+
+   option     MC price       s.e.                    95% CI     BS price   inside       z
+     call    12.318671   1.85e-02  [ 12.282493,  12.354849]    12.335999      yes   -0.94
+      put     7.441629   1.09e-02  [  7.420331,   7.462927]     7.458941      yes   -1.59
+
+  check                                                 value        tol
+  BS inside 95% CI at M=1e6 (call and put)          0.000e+00    5.0e-01
+  s.e. scaling exponent vs -0.5                     2.181e-03    5.0e-02
+  sample parity C - P = e^-rT (mean S_T - K)        2.753e-14    1.0e-10
+  q=0.015 call: |MC - BS| / s.e.                    9.754e-01    3.0e+00
+  q=0.015 put: |MC - BS| / s.e.                     1.541e+00    3.0e+00
+  mean S_T vs S e^{(r-q)T}, relative                1.564e-07    2.0e-03
+  antithetic reduces variance (factor > 1)          0.000e+00    5.0e-01
+  antithetic CI still covers BS                     0.000e+00    5.0e-01
+
+  s.e. slope against M: -0.5022 (theory -0.5)
+
+  antithetic variance-reduction factor: 1.80x (s.e. 4.14e-02 -> 3.08e-02)
+
+  ALL CHECKS PASSED
+
+==============================================================================
+TASK 2a  -  CONVERGENCE IN M
+==============================================================================
+  CALL  (Black-Scholes 12.335999)
+             M     MC price   abs error       s.e.                    95% CI  inside      z
+         1,000    11.535280    8.01e-01   5.51e-01  [ 10.455012,  12.615549]     yes  -1.45
+        10,000    12.310047    2.60e-02   1.87e-01  [ 11.943975,  12.676119]     yes  -0.14
+       100,000    12.390329    5.43e-02   5.87e-02  [ 12.275315,  12.505342]     yes   0.93
+     1,000,000    12.320496    1.55e-02   1.85e-02  [ 12.284238,  12.356755]     yes  -0.84
+
+  PUT  (Black-Scholes 7.458941)
+             M     MC price   abs error       s.e.                    95% CI  inside      z
+         1,000     7.442239    1.67e-02   3.47e-01  [  6.763005,   8.121473]     yes  -0.05
+        10,000     7.404353    5.46e-02   1.08e-01  [  7.192573,   7.616134]     yes  -0.51
+       100,000     7.444593    1.43e-02   3.44e-02  [  7.377181,   7.512005]     yes  -0.42
+     1,000,000     7.463372    4.43e-03   1.09e-02  [  7.442055,   7.484689]     yes   0.41
+
+  Fitted slope of standard error against M: -0.4925  (theory -0.5)
+  The standard error is a PREDICTION of accuracy made without knowing
+  the true price. That it tracks the realised error is the point.
+
+==============================================================================
+TASK 2b  -  CONFIDENCE-INTERVAL COVERAGE
+==============================================================================
+   CALL: 187/200 intervals contain the BS price  ->  coverage 93.5%
+         z-scores: mean -0.018, sd 1.028   (theory 0 and 1)
+    PUT: 187/200 intervals contain the BS price  ->  coverage 93.5%
+         z-scores: mean -0.081, sd 1.057   (theory 0 and 1)
+
+  Expected coverage 95.0%, with a sampling standard error of 1.5% on 200 replications,
+  so anything in roughly 92-98% is consistent with correct intervals.
+
+==============================================================================
+TASK 2c  -  CONVERGENCE FIGURE  ->  mc_plots/mc_convergence.png
+==============================================================================
+  Saved the named deliverable mc_plots/mc_convergence.png
+
+==============================================================================
+TASK 3  -  THREE-METHOD COMPARISON  (the computational gate)
+==============================================================================
+  30 cases: S in {80,90,100,110,120} x T in {0.25,1,2} x {call, put}
+  CRR at N = 1000 and averaged over N, N+1; Monte Carlo at M = 1,000,000
+
+      S     T  type          BS         CRR      CRRavg          MC   MC s.e.     CRR-BS  (MC-BS)/se
+     80  0.25  call    0.210352    0.210132    0.210158    0.207388  1.40e-03  -2.20e-04       -2.12
+     80  0.25   put   18.968132   18.967912   18.967938   18.962795  9.52e-03  -2.20e-04       -0.56
+     90  0.25  call    1.563092    1.563491    1.563209    1.556796  4.24e-03   3.98e-04       -1.49
+     90  0.25   put   10.320872   10.321271   10.320990   10.311907  8.77e-03   3.98e-04       -1.02
+    100  0.25  call    5.598400    5.597156    5.598386    5.591354  8.25e-03  -1.24e-03       -0.85
+    100  0.25   put    4.356180    4.354936    4.356166    4.346169  6.34e-03  -1.24e-03       -1.58
+    110  0.25  call   12.641464   12.640803   12.641500   12.637853  1.19e-02  -6.61e-04       -0.30
+    110  0.25   put    1.399244    1.398583    1.399280    1.392371  3.62e-03  -6.61e-04       -1.90
+    120  0.25  call   21.590210   21.589739   21.590043   21.592779  1.44e-02  -4.71e-04        0.18
+    120  0.25   put    0.347990    0.347519    0.347823    0.347000  1.72e-03  -4.71e-04       -0.57
+     80  1.00  call    3.141523    3.140440    3.141373    3.127969  8.84e-03  -1.08e-03       -1.53
+     80  1.00   put   18.264466   18.263382   18.264316   18.250924  1.48e-02  -1.08e-03       -0.92
+     90  1.00  call    6.869814    6.871217    6.870458    6.851844  1.36e-02   1.40e-03       -1.33
+     90  1.00   put   11.992757   11.994160   11.993400   11.974800  1.31e-02   1.40e-03       -1.37
+    100  1.00  call   12.335999   12.333527   12.335891   12.318671  1.85e-02  -2.47e-03       -0.94
+    100  1.00   put    7.458941    7.456470    7.458834    7.441629  1.09e-02  -2.47e-03       -1.59
+    110  1.00  call   19.305092   19.303322   19.305222   19.288815  2.31e-02  -1.77e-03       -0.70
+    110  1.00   put    4.428034    4.426264    4.428165    4.411775  8.53e-03  -1.77e-03       -1.91
+    120  1.00  call   27.406343   27.407835   27.406363   27.393758  2.73e-02   1.49e-03       -0.46
+    120  1.00   put    2.529285    2.530778    2.529306    2.516719  6.44e-03   1.49e-03       -1.95
+     80  2.00  call    7.428639    7.425362    7.427911    7.403055  1.71e-02  -3.28e-03       -1.49
+     80  2.00   put   17.912381   17.909104   17.911653   17.892745  1.70e-02  -3.28e-03       -1.15
+     90  2.00  call   12.421966   12.423423   12.422961   12.393302  2.28e-02   1.46e-03       -1.26
+     90  2.00   put   12.905708   12.907164   12.906703   12.883736  1.53e-02   1.46e-03       -1.43
+    100  2.00  call   18.647076   18.643617   18.646788   18.618215  2.84e-02  -3.46e-03       -1.02
+    100  2.00   put    9.130818    9.127358    9.130530    9.109393  1.34e-02  -3.46e-03       -1.60
+    110  2.00  call   25.887025   25.888440   25.888305   25.857750  3.38e-02   1.42e-03       -0.86
+    110  2.00   put    6.370767    6.372182    6.372046    6.349671  1.14e-02   1.42e-03       -1.86
+    120  2.00  call   33.915638   33.915497   33.916525   33.887763  3.90e-02  -1.41e-04       -0.71
+    120  2.00   put    4.399379    4.399239    4.400267    4.380428  9.51e-03  -1.41e-04       -1.99
+
+  ACCEPTANCE CRITERIA
+    max |CRR - BS|          3.459e-03   (target < 5e-03)   PASS
+    max |CRRavg - BS|       1.280e-03   (target < 5e-03)   PASS
+    |MC - BS| < 2 s.e. in   96.7% of cases   (target about 95%)  PASS
+    max |(MC - BS)/s.e.|    2.12
+
+  Cases beyond 2 standard errors (1 of 30):
+    S=80 T=0.25 call  z = -2.12
+    Under correct intervals about 5% of cases should exceed 2 s.e.,
+    i.e. roughly 1.5 of 30. These are consistent with that,
+    and all were priced from the SAME seed, so they are not independent.
+
+==============================================================================
+TASK 4  -  DIVIDEND YIELD q
+==============================================================================
+  Verifying the full stack at q = 0.015 and at q = 0
+
+             q        BS call   parity error   PDE residual     CRR N=2000       CRR - BS             MC     (MC-BS)/se   IV recovered       IV error
+    0.00000000    12.33599893     0.00000000     0.00000000    12.33476298    -0.00123595    12.31867077    -0.93876069     0.25000000     0.00000000
+    0.01500000    11.41887237     0.00000000     0.00000000    11.41765727    -0.00121510    11.40157114    -0.97544533     0.25000000     0.00000000
+
+  All five components accept q and remain consistent:
+    - put-call parity with the dividend, C - P = S e^-qT - K e^-rT, holds to
+      0.0e+00
+    - the Black-Scholes PDE with (r - q) in the drift term holds to
+      8.9e-16
+    - CRR, which uses e^(r-q)dt in the risk-neutral probability, agrees to
+      1.2e-03
+    - Monte Carlo, with the (r - q - sigma^2/2) drift, is within
+      0.98 standard errors
+    - implied volatility inverts back to sigma to 3.3e-16
+
+  NOTE FOR THE REPORT, as the task sheet requires: the Week 4 check that an
+  American call equals a European call holds ONLY when q = 0. With q > 0 early
+  exercise can be optimal just before a dividend, so the American call is worth
+  strictly more. That check is therefore conditioned on q = 0 and is not a
+  defect of the implementation.
+
+==============================================================================
+CHECKPOINT QUESTION
+==============================================================================
+
+  "Are the numerical differences between the three methods fully explained by
+   known convergence (CRR) and sampling uncertainty (MC)?"
+
+  Yes, on the evidence of the 30-case grid.
+
+  CRR. The largest deviation from Black-Scholes is 3.46e-03 at N = 1000.
+  Week 4 measured the convergence order as -0.9999 and showed the error sign is
+  fixed by the parity of N. Averaging N and N+1 cuts the largest deviation to
+  1.28e-03. The residual is deterministic discretisation error of the size
+  and sign the convergence law predicts, not an unexplained discrepancy.
+
+  Monte Carlo. 97% of the 30 cases lie within two standard errors of the
+  analytical price, and the coverage study over 200 independent replications gave
+  93.5% for calls and 93.5% for puts
+  against a nominal 95%. The z-scores have mean -0.018 and
+  standard deviation 1.028 against a theoretical 0 and 1, so the
+  reported intervals are neither optimistic nor conservative. The standard error
+  falls as M^(-0.493) against a theoretical -0.5.
+
+  The two residual differences are of entirely different kinds. CRR error is
+  deterministic and shrinks predictably with N. Monte Carlo error is random and
+  is quantified in advance by an interval that does not require knowing the
+  answer. Neither is unexplained, which is what the gate asks.
+
+==============================================================================
+SUMMARY
+==============================================================================
+  seed                         20260825
+  mc_self_test                 True
+  se_slope_vs_M                -0.49251847696946904
+  coverage_call                0.935
+  coverage_put                 0.935
+  coverage_z_mean              -0.018094890697414986
+  coverage_z_sd                1.0276830509229002
+  max_abs_CRR_minus_BS         0.0034591629571867344
+  max_abs_CRRavg_minus_BS      0.0012798741783619505
+  frac_MC_within_2se           0.9666666666666667
+  max_abs_MC_z                 2.1164013241089603
+  q_max_parity_error           0.0
+  q_max_pde_residual           8.881784197001252e-16
+  comparison_cases             30
+
+  runtime 1.6 s
+
+Saved: results/pricing_comparison.csv (the gate), results/w06_*.csv
+       mc_plots/mc_convergence.png
+
+Full console output written to: results/w06_console_output.txt

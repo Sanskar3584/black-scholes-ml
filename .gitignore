@@ -1,7 +1,11 @@
 # --- Reference material, not ours to redistribute -------------------------
 *.pdf
 !docs/*.pdf
-[Wiley Finance Series]*
+# Escape the brackets. Unescaped, "[Wiley Finance Series]*" is a character
+# class: it matches any filename starting with one of W,i,l,e,y,F,n,a,c,S,r,s
+# or a space, which silently excluded README.md, implied_volatility.py,
+# monte_carlo.py, results/, reports/ and notebooks/ from the repository.
+\[Wiley Finance Series\]*
 
 # --- Python ---------------------------------------------------------------
 __pycache__/

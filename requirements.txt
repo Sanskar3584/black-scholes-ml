@@ -1,0 +1,20 @@
+# AI/ML-Augmented Black-Scholes Framework
+# Python 3.12
+#
+#   pip install -r requirements.txt
+#
+# Minimum versions are given rather than exact pins: the results depend only on the
+# seed (20260825) and the cached price file, not on library patch versions.
+
+numpy>=1.26
+pandas>=2.0
+scipy>=1.11
+matplotlib>=3.8
+
+# Market data. Needed only for the first run of week1.py, which caches NIFTY 50
+# prices to data/nifty50_prices.csv. Every subsequent run reads the cache.
+yfinance>=0.2.40
+
+# Notebooks (optional; not required to reproduce any result from the .py scripts)
+jupyter>=1.0
+nbformat>=5.9

@@ -1,0 +1,24 @@
+seed,20260825.0
+sd_scaling_exponent,0.5002446221487858
+sd_scaling_theory,0.5
+max_|var/dt - 1|,0.006092382468204427
+max_|autocorrelation|,0.004262641495162346
+acf_95pct_band,0.004382693235899588
+QV_at_n=100000,0.9949824668871456
+QV_theory,1.0
+max_|QV normalised dev|,1.5847931760107252
+first_variation_n=100000,251.29869517749484
+nifty_annualised_sigma,0.16738891219250238
+nifty_annualised_mu,0.12016666001219622
+n_returns,2458.0
+nifty_skewness,-1.407643344280755
+gbm_skewness,-0.021646618337513662
+nifty_excess_kurtosis,20.413236235271683
+gbm_excess_kurtosis,0.16502174348153398
+nifty_jarque_bera_p,0.0
+gbm_jarque_bera_p,0.23601429759664028
+nifty_days_beyond_4sigma,15.0
+gbm_days_beyond_4sigma,0.0
+nifty_days_beyond_5sigma,10.0
+gbm_days_beyond_5sigma,0.0
+max_two_drift_error,0.0004962038062145679

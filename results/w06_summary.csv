@@ -1,0 +1,14 @@
+seed,20260825
+mc_self_test,True
+se_slope_vs_M,-0.49251847696946904
+coverage_call,0.935
+coverage_put,0.935
+coverage_z_mean,-0.018094890697414986
+coverage_z_sd,1.0276830509229002
+max_abs_CRR_minus_BS,0.0034591629571867344
+max_abs_CRRavg_minus_BS,0.0012798741783619505
+frac_MC_within_2se,0.9666666666666667
+max_abs_MC_z,2.1164013241089603
+q_max_parity_error,0.0
+q_max_pde_residual,8.881784197001252e-16
+comparison_cases,30

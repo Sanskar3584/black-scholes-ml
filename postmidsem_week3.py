@@ -163,9 +163,10 @@ def section3_step_size(S=100.0, K=100.0, T=1.0, r=0.05, sigma=0.25):
             "vega": hs[np.nanargmin(e_v)]}
 
     print("  Optimal step size found by scan\n")
-    print(f"  {'quantity':>10}{'h* observed':>15}{'scale-free':>13}"
+    print(f"  {'quantity':>10}{'h* observed':>15}{'scaled ref':>13}"
           f"{'min error':>13}{'error at h=1e-12':>19}")
-    scale_free = {"delta": eps ** (1 / 3), "gamma": eps ** (1 / 4), "vega": eps ** (1 / 3)}
+    scale_free = {"delta": S * eps ** (1 / 3), "gamma": S * eps ** (1 / 4),
+                  "vega": sigma * eps ** (1 / 3)}
     for name, err in (("delta", e_d), ("gamma", e_g), ("vega", e_v)):
         print(f"  {name:>10}{best[name]:>15.2e}{scale_free[name]:>13.2e}"
               f"{np.nanmin(err):>13.2e}{err[0]:>19.2e}")
@@ -200,16 +201,18 @@ def section3_step_size(S=100.0, K=100.0, T=1.0, r=0.05, sigma=0.25):
     ax[0].loglog(hs, np.maximum(e_d, 1e-20), "o-", ms=3, color="#1f4e79", label="delta")
     mv = np.isfinite(e_v)
     ax[0].loglog(hs[mv], np.maximum(e_v[mv], 1e-20), "s-", ms=3, color="#e08214", label="vega")
-    ax[0].axvline(eps ** (1 / 3), color="r", ls="--", lw=1.2,
-                  label=r"theory $h^*=\epsilon^{1/3}$")
+    ax[0].axvline(S * eps ** (1 / 3), color="#1f4e79", ls="--", lw=1.3,
+                  label=r"$S\,\epsilon^{1/3}$")
+    ax[0].axvline(sigma * eps ** (1 / 3), color="#e08214", ls=":", lw=1.5,
+                  label=r"$\sigma\,\epsilon^{1/3}$")
     ax[0].set(xlabel="step size h", ylabel="absolute error",
-              title="First derivatives: error is V-shaped in h")
+              title="First derivatives: theory scaled by the bumped variable")
     ax[0].legend(frameon=False, fontsize=8)
     ax[1].loglog(hs, np.maximum(e_g, 1e-20), "o-", ms=3, color="#c0504d", label="gamma")
-    ax[1].axvline(eps ** (1 / 4), color="r", ls="--", lw=1.2,
-                  label=r"theory $h^*=\epsilon^{1/4}$")
+    ax[1].axvline(S * eps ** (1 / 4), color="r", ls="--", lw=1.3,
+                  label=r"$S\,\epsilon^{1/4}$")
     ax[1].set(xlabel="step size h", ylabel="absolute error",
-              title="Second derivative: cancellation is worse, optimum larger")
+              title="Second derivative: scaled optimum lands on the minimum")
     ax[1].legend(frameon=False, fontsize=8)
     finish(fig, "fd_step_size_study")
 

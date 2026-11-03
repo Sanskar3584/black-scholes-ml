@@ -1,0 +1,192 @@
+==============================================================================
+POST-MIDSEM WEEK 4 - BINOMIAL OPTION PRICING AND CONVERGENCE
+==============================================================================
+
+==============================================================================
+MODULE SELF-TEST  -  binomial.py
+==============================================================================
+  check                                                value         tol
+  backward induction vs closed form                4.135e-12       1e-09
+  put-call parity on the lattice                   3.880e-12       1e-09
+  p outside (0,1) count                            0.000e+00       0e+00
+  max |binomial(N=2000) - BS|                      3.460e-03       5e-02
+  American put >= European (max violation)         0.000e+00       1e-12
+  American = European call, no dividend            0.000e+00       1e-09
+
+  ALL CHECKS PASSED
+
+==============================================================================
+1. LATTICE PARAMETERS AND THE RISK-NEUTRAL PROBABILITY
+==============================================================================
+  CRR lattice:  u = exp(sigma sqrt(dt)),  d = 1/u,  p = (e^{(r-q)dt} - d)/(u - d)
+
+  Contract: S = 100.0, K = 100.0, T = 1.0, r = 0.05, sigma = 0.25
+
+    N           dt            u            d            p      u-1 (%)  valid
+    1     1.000000     1.284025     0.778801     0.539305    28.402542   True
+    2     0.500000     1.193365     0.837967     0.527151    19.336458   True
+    5     0.200000     1.118293     0.894220     0.516930    11.829298   True
+   10     0.100000     1.082266     0.923987     0.511915     8.226595   True
+   50     0.020000     1.035988     0.965262     0.505308     3.598777   True
+  100     0.010000     1.025315     0.975310     0.503752     2.531512   True
+  500     0.002000     1.011243     0.988882     0.501677     1.124307   True
+ 1000     0.001000     1.007937     0.992125     0.501186     0.793703   True
+10000     0.000100     1.002503     0.997503     0.500375     0.250313   True
+
+  As N grows the step shrinks, u -> 1, and p -> 1/2 from above:
+    p at N = 10,000 is 0.500375, first-order prediction 0.500375
+
+  Reading this table
+    u - 1 is the size of one up-move. At N = 1000 it is 0.79%, so the lattice is
+    resolving the distribution at sub-percent granularity.
+    p sits slightly above 1/2 because the risk-neutral drift is positive here.
+    Its limit is 1/2 + (r - sigma^2/2) sqrt(dt) / (2 sigma), which is exactly
+    the discrete counterpart of the log-drift derived in Week 2.
+
+==============================================================================
+2. CONVERGENCE AT N = 10, 25, 50, 100, 250, 500, 1000
+==============================================================================
+  Analytical Black-Scholes call price: 12.3359989304
+
+  CALL
+         N        binomial   Black-Scholes    E_N = error       |E_N|    N |E_N|
+        10   12.0922535495   12.3359989304      -2.44e-01    2.44e-01     2.4375
+        25   12.4267079210   12.3359989304       9.07e-02    9.07e-02     2.2677
+        50   12.2866845549   12.3359989304      -4.93e-02    4.93e-02     2.4657
+       100   12.3113097169   12.3359989304      -2.47e-02    2.47e-02     2.4689
+       250   12.3261157058   12.3359989304      -9.88e-03    9.88e-03     2.4708
+       500   12.3310560739   12.3359989304      -4.94e-03    4.94e-03     2.4714
+      1000   12.3335271922   12.3359989304      -2.47e-03    2.47e-03     2.4717
+
+  PUT
+         N        binomial   Black-Scholes    E_N = error       |E_N|    N |E_N|
+        10    7.2151959995    7.4589413804      -2.44e-01    2.44e-01     2.4375
+        25    7.5496503711    7.4589413804       9.07e-02    9.07e-02     2.2677
+        50    7.4096270049    7.4589413804      -4.93e-02    4.93e-02     2.4657
+       100    7.4342521669    7.4589413804      -2.47e-02    2.47e-02     2.4689
+       250    7.4490581559    7.4589413804      -9.88e-03    9.88e-03     2.4708
+       500    7.4539985239    7.4589413804      -4.94e-03    4.94e-03     2.4714
+      1000    7.4564696423    7.4589413804      -2.47e-03    2.47e-03     2.4717
+
+  The N |E_N| column is the diagnostic. It settles close to a constant,
+  which confirms the error is O(1/N) - but to TWO different constants
+  depending on the parity of N. Section 4 isolates why.
+
+  Note also that the call and put errors are identical to every digit.
+  That is put-call parity holding exactly on the lattice: the binomial
+  model is internally arbitrage-free at any N, however coarse.
+
+==============================================================================
+3. CONVERGENCE FIGURE  ->  binomial_plots/binomial_convergence.png
+==============================================================================
+  Saved the named deliverable binomial_convergence.png
+
+==============================================================================
+4. THE OSCILLATION, AND WHERE IT COMES FROM
+==============================================================================
+  Fitted convergence order  (slope of log|E_N| against log N)
+
+    all N            -1.000
+    even N only      -0.998
+    odd  N only      -1.001
+    theory                 -1.000
+
+  Sign of the error against the parity of N  (391 values, N = 10 to 400)
+
+    even N giving a NEGATIVE error     100.0%
+    odd  N giving a POSITIVE error     100.0%
+
+    mean N|E_N|, even N                2.4690
+    mean N|E_N|, odd  N                2.2605
+
+  The split is total: not one exception in either direction. The binomial
+  price sits BELOW Black-Scholes for every even N and ABOVE it for every
+  odd N, with each branch obeying its own 1/N law and its own constant.
+
+    averaging N and N+1  -0.874   (max |error| 1.83e-02 vs 2.44e-01 raw)
+
+  WHY THE ERROR OSCILLATES
+
+    The terminal nodes sit at S exp[(2j - N) sigma sqrt(dt)]. Whether the strike
+    K falls close to a node, or midway between two, changes with N - and it
+    alternates with the PARITY of N, because an even N puts a node exactly at
+    S exp(0) = S while an odd N straddles it.
+
+    For an at-the-money option that is precisely where the payoff kink sits. The
+    lattice therefore resolves the kink well for one parity and badly for the
+    other, and the error jumps between two smooth branches rather than decreasing
+    smoothly.
+
+    Separating the two parities confirms it: each branch alone has a clean
+    convergence order near -1, while the combined sequence looks ragged. This is
+    a discretisation artefact of where the nodes land, not a failure of the method.
+
+    Averaging consecutive N damps it, which is the cheapest practical fix and the
+    reason production implementations often price at N and N+1 and take the mean.
+
+==============================================================================
+5. ACROSS MONEYNESS AND MATURITY
+==============================================================================
+  CRR at N = 1000 against the analytical price
+
+       T      S  option        binomial   Black-Scholes     abs err     rel err
+    0.25     80    call      0.21013207      0.21035190    2.20e-04    1.05e-03
+    0.25     80     put     18.96791211     18.96813195    2.20e-04    1.16e-05
+    0.25     90    call      1.56349052      1.56309232    3.98e-04    2.55e-04
+    0.25     90     put     10.32127057     10.32087236    3.98e-04    3.86e-05
+    0.25    100    call      5.59715615      5.59840024    1.24e-03    2.22e-04
+    0.25    100     put      4.35493620      4.35618029    1.24e-03    2.86e-04
+    0.25    110    call     12.64080325     12.64146390    6.61e-04    5.23e-05
+    0.25    110     put      1.39858330      1.39924395    6.61e-04    4.72e-04
+    0.25    120    call     21.58973878     21.59020966    4.71e-04    2.18e-05
+    0.25    120     put      0.34751883      0.34798971    4.71e-04    1.35e-03
+    1.00     80    call      3.14043987      3.14152336    1.08e-03    3.45e-04
+    1.00     80     put     18.26338232     18.26446581    1.08e-03    5.93e-05
+    1.00     90    call      6.87121715      6.86981410    1.40e-03    2.04e-04
+    1.00     90     put     11.99415960     11.99275655    1.40e-03    1.17e-04
+    1.00    100    call     12.33352719     12.33599893    2.47e-03    2.00e-04
+    1.00    100     put      7.45646964      7.45894138    2.47e-03    3.31e-04
+    1.00    110    call     19.30332197     19.30509153    1.77e-03    9.17e-05
+    1.00    110     put      4.42626442      4.42803398    1.77e-03    4.00e-04
+    1.00    120    call     27.40783541     27.40634290    1.49e-03    5.45e-05
+    1.00    120     put      2.53077786      2.52928535    1.49e-03    5.90e-04
+    2.00     80    call      7.42536203      7.42863905    3.28e-03    4.41e-04
+    2.00     80     put     17.90910383     17.91238085    3.28e-03    1.83e-04
+    2.00     90    call     12.42342266     12.42196623    1.46e-03    1.17e-04
+    2.00     90     put     12.90716446     12.90570803    1.46e-03    1.13e-04
+    2.00    100    call     18.64361659     18.64707575    3.46e-03    1.86e-04
+    2.00    100     put      9.12735839      9.13081756    3.46e-03    3.79e-04
+    2.00    110    call     25.88844010     25.88702473    1.42e-03    5.47e-05
+    2.00    110     put      6.37218190      6.37076653    1.42e-03    2.22e-04
+    2.00    120    call     33.91549714     33.91563770    1.41e-04    4.14e-06
+    2.00    120     put      4.39923894      4.39937950    1.41e-04    3.19e-05
+
+  max absolute error 3.459e-03
+  max relative error 1.353e-03   (excluding deep OTM where the price itself is tiny)
+
+==============================================================================
+SUMMARY
+==============================================================================
+  seed                           20260825
+  binomial_self_test             True
+  bs_call_price                  12.335998930368717
+  crr_N10_abs_error              0.24374538089566222
+  crr_N1000_abs_error            0.002471738137348467
+  error_reduction_10_to_1000     98.61294657901654
+  convergence_order_all_N        -0.9998820915416029
+  convergence_order_even_N       -0.9980678919919507
+  convergence_order_odd_N        -1.001421753986074
+  convergence_order_averaged     -0.8742955089772686
+  frac_even_N_negative_error     1.0
+  frac_odd_N_positive_error      1.0
+  N_times_error_even             2.46895399890085
+  N_times_error_odd              2.2605029041618523
+  max_err_raw                    0.24374538089566222
+  max_err_after_averaging        0.018327329586261598
+  grid_max_abs_error_N1000       0.0034591629571867344
+
+  runtime 2.0 s
+
+Saved: results/w05_*.csv   Figures: binomial_plots/*.png
+
+Full console output written to: results/w05_console_output.txt

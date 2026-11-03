@@ -1,0 +1,17 @@
+seed,20260825
+binomial_self_test,True
+bs_call_price,12.335998930368717
+crr_N10_abs_error,0.24374538089566222
+crr_N1000_abs_error,0.002471738137348467
+error_reduction_10_to_1000,98.61294657901654
+convergence_order_all_N,-0.9998820915416029
+convergence_order_even_N,-0.9980678919919507
+convergence_order_odd_N,-1.001421753986074
+convergence_order_averaged,-0.8742955089772686
+frac_even_N_negative_error,1.0
+frac_odd_N_positive_error,1.0
+N_times_error_even,2.46895399890085
+N_times_error_odd,2.2605029041618523
+max_err_raw,0.24374538089566222
+max_err_after_averaging,0.018327329586261598
+grid_max_abs_error_N1000,0.0034591629571867344

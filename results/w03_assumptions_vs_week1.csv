@@ -1,0 +1,7 @@
+Classical model assumption,Empirical observation (Week 1)
+Continuous diffusion; no jumps,"15 days beyond 4 sigma, 10 beyond 5 sigma in 2,458 observations"
+Constant volatility sigma,"Volatility clustering: |return| autocorrelation 0.31 at lag 1, still 0.09 at lag 30"
+Gaussian log-return innovations,"Skewness -1.41, excess kurtosis 20.41, Jarque-Bera p = 0.000"
+Independent increments,Return magnitudes show persistent positive dependence
+Lognormal asset-price dynamics,"Useful benchmark, but an incomplete description of market behaviour"
+"Continuous, costless rebalancing",Not tested yet; discrete-hedging error is visible in Task 6 above
