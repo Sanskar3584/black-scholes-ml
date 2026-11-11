@@ -18,3 +18,9 @@ yfinance>=0.2.40
 # Notebooks (optional; not required to reproduce any result from the .py scripts)
 jupyter>=1.0
 nbformat>=5.9
+
+# Optional. OLS and Ridge are solved in closed form in linear_models.py, so no
+# result depends on scikit-learn. When it IS installed, the self-test
+# cross-checks both fits against it (agreement 2.8e-13) and reports the
+# comparison; when it is not, the check is skipped and nothing else changes.
+scikit-learn>=1.4

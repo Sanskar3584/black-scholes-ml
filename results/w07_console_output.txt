@@ -1,0 +1,275 @@
+
+==============================================================================
+POST-MIDSEM WEEK 6 - SYNTHETIC DATASET AND REGRESSION BASELINES
+==============================================================================
+Post-midsem plan Week 6 (4-10 Nov 2026); master plan 11.6 and 11.7
+Seed 20260825 throughout.
+
+==============================================================================
+MODULE SELF-TESTS
+==============================================================================
+  ml_dataset.py     ALL CHECKS PASSED
+  linear_models.py  ALL CHECKS PASSED
+
+==============================================================================
+TASK 1  -  THE SEVEN-POINT SPECIFICATION  (master plan 5.31)
+==============================================================================
+  Fixed in ML_experiment_plan.md BEFORE any model was fitted.
+  Section 5.31: 'No machine-learning result shall be accepted
+  without this specification.'
+
+  1 inputs           x = [m, T, r, sigma], m = ln(S/K); extended set adds Delta, Gamma, Vega
+  2 target           y = C_BS / K   (homogeneity of degree one in S, K)
+  3 split            70/15/15, drawn once under seed 20260825, stored as a column in the data file
+  4 loss             mean squared error; Ridge adds alpha*||beta||^2 with the intercept unpenalised
+  5 hyperparameters  OLS none; Ridge alpha on 25 log-spaced values 1e-6..1e3, chosen on VALIDATION only
+  6 benchmark        Black-Scholes itself - exact here, so its error is 0 and no model can beat it
+  7 success          not a small error: the linear model must fail WHERE curvature says it must
+
+  ML_experiment_plan.md present: yes
+
+==============================================================================
+TASK 2  -  SYNTHETIC DATASET  (master plan 11.6)
+==============================================================================
+  Generating 20000 rows under seed 20260825 ...
+  built 20000 rows: 20000 call, 0 put
+    calls only: puts follow exactly by put-call parity, so put rows
+    would add no information and would make the target two-valued
+    at every feature vector. See ml_dataset.py docstring.
+    train   14000 rows (70.0%)
+    val      3000 rows (15.0%)
+    test     3000 rows (15.0%)
+  wrote data/synthetic_option_dataset.csv  (20000 rows, 14 columns, 4671.1 KB)
+
+  Why calls only: at one and the same feature vector
+  x = [m, T, r, sigma], the call and the put have different
+  targets. Median |y_call - y_put| = 0.2838 against a target
+  spread of 0.2510. Admitting puts would make the target
+  two-valued and put roughly half the variance beyond the reach
+  of ANY function of x. Puts follow exactly by parity instead,
+  so nothing is lost. The cost is measured in Task 3.
+
+  Sampling distribution actually realised:
+    column            min     median        max       mean
+    m             -0.5999     0.0031     0.5999     0.0007
+    T              0.0192     0.1966     1.9997     0.4225
+    r              0.0300     0.0551     0.0800     0.0551
+    sigma          0.1000     0.3511     0.6000     0.3505
+    C_BS           0.0000    10.0996    54.0217    15.2513
+    y              0.0000     0.0966     0.9573     0.2147
+    short maturity: 15.8% of rows have T < 0.04 (uniform T would give about 1%)
+
+==============================================================================
+TASK 2b  -  TRACEABILITY AUDIT  (the Week 6 project milestone)
+==============================================================================
+  The milestone asks for a demonstrated chain
+      input parameters -> BS quantities -> features -> target.
+  The audit below reloads the saved CSV and recomputes every stage
+  from the stored INPUT columns alone. Reading from disk matters:
+  it also tests that the file round-trips at full precision, which
+  a rounded float_format would silently break.
+
+  stage                         max abs discrepancy
+    m                           5.065e-16
+    C_BS                        6.040e-14
+    delta                       4.441e-15
+    gamma                       1.346e-15
+    vega                        7.816e-14
+    y                           9.992e-16
+    put-call parity (independent)  2.842e-14
+
+  worst discrepancy anywhere in the chain: 7.816e-14
+  CHAIN VERIFIED
+
+  One row end to end (row 4859, the closest to the money):
+    inputs     S=100.0000  K=100.0037  T=0.490614  r=0.0457  sigma=0.5054  q=0.0150  call
+    BS         C_BS=14.5968057979   recomputed=14.5968057979   diff=0.00e+00
+    Greeks     Delta=0.582572  Gamma=0.010920  Vega=27.078225
+    features   m=-0.0000373842  (= ln(100.0000/100.0037) = -0.0000373842)
+    target     y=0.1459626012  (= 14.596806 / 100.0037 = 0.1459626012)
+    split      train
+
+==============================================================================
+TASK 3  -  OLS AND RIDGE BASELINES  (master plan 11.7)
+==============================================================================
+  Scaler fitted on TRAINING ROWS ONLY (5.12, 5.13).
+  Ridge alpha chosen on VALIDATION ONLY.
+  Test split evaluated ONCE, at the end, after both models froze.
+
+  basic [m,T,r,sigma]
+    ridge alpha selected on validation: 1.000e-06
+  extended +Greeks
+    ridge alpha selected on validation: 5.623e+00
+
+  Errors are in currency units at K = 100 (target was C/K).
+
+  model                              split         MAE       RMSE        R2   max error
+  OLS / basic [m,T,r,sigma]          train      9.1084    10.6248  0.822668     26.6709
+  OLS / basic [m,T,r,sigma]          val        9.1278    10.6222  0.815843     26.4746
+  OLS / basic [m,T,r,sigma]          test       8.9559    10.4565  0.822981     26.2419  <-- once
+  Ridge / basic [m,T,r,sigma]        train      9.1084    10.6248  0.822668     26.6709
+  Ridge / basic [m,T,r,sigma]        val        9.1278    10.6222  0.815843     26.4746
+  Ridge / basic [m,T,r,sigma]        test       8.9559    10.4565  0.822981     26.2419
+  OLS / extended +Greeks             train      6.2215     7.7896  0.904682     79.0258
+  OLS / extended +Greeks             val        6.3337     7.8158  0.900299     27.7656
+  OLS / extended +Greeks             test       6.3259     7.9591  0.897443     52.4918
+  Ridge / extended +Greeks           train      6.2213     7.7897  0.904680     79.0312
+  Ridge / extended +Greeks           val        6.3334     7.8157  0.900301     27.7419
+  Ridge / extended +Greeks           test       6.3241     7.9570  0.897496     52.4707
+  OLS / quadratic in the same 4      train      1.8358     2.2582  0.991989     12.0710
+  OLS / quadratic in the same 4      val        1.8481     2.2639  0.991635     10.6141
+  OLS / quadratic in the same 4      test       1.8292     2.2614  0.991721     11.0790
+  Black-Scholes (benchmark)          train      0.0000     0.0000  1.000000      0.0000
+  Black-Scholes (benchmark)          val        0.0000     0.0000  1.000000      0.0000
+  Black-Scholes (benchmark)          test       0.0000     0.0000  1.000000      0.0000
+  [diagnostic] OLS on mixed calls+pu train     16.8015    20.1476  0.069749     60.8673
+  [diagnostic] OLS on mixed calls+pu test      16.8420    20.1394  0.060347     61.1894
+
+  OLS coefficients on standardised basic features (so they are comparable):
+    intercept +0.215275
+    m         +0.225983
+    T         +0.030752
+    r         +0.003038
+    sigma     +0.015024
+  Read these as 'change in C/K per one standard deviation of the
+  feature'. Moneyness dominates by an order of magnitude over T,
+  which in turn beats sigma; r is almost irrelevant over a 3-8%
+  range, which is the correct economics - the discount factor moves
+  very little over that span relative to everything else.
+
+==============================================================================
+TASK 4  -  RESIDUALS AGAINST m AND T  (master plan 11.7)
+==============================================================================
+  The prediction, written down before looking. The call surface
+  y = C/K is convex in m: flat as m -> -inf, rising like e^m when
+  deep in the money. A least-squares line through a convex function
+  OVER-predicts in the interior and UNDER-predicts at both ends -
+  for y = x^2 on [-1,1] the fitted line is y = 1/3, so the residual
+  1/3 - x^2 is positive in the middle and negative at the ends.
+  So: mean residual POSITIVE near the money, NEGATIVE in both
+  wings, and |residual| largest where Gamma is largest.
+
+  Residual by maturity (currency units at K = 100):
+    T bucket              n       mean         sd    mean|e|
+    (0.0, 0.08]        6105     0.1932    11.6309    10.0952
+    (0.08, 0.25]       4937     0.2427    11.0635     9.6743
+    (0.25, 0.5]        3035    -0.0154    10.2113     8.8550
+    (0.5, 1.0]         3023    -0.2919     9.4097     7.9611
+    (1.0, 1.5]         1715    -0.3580     8.8773     7.3490
+    (1.5, 2.01]        1185     0.6521     9.0284     7.4522
+
+  Residual by log-moneyness:
+    m bucket              n       mean         sd    mean|e|
+    (-0.61, -0.4]      3309   -11.7851     4.3043    11.7858
+    (-0.4, -0.2]       3318     0.2840     3.8830     3.2429
+    (-0.2, -0.05]      2457     9.4848     3.1258     9.4887
+    (-0.05, 0.05]      1693    12.8524     3.5911    12.8542
+    (0.05, 0.2]        2556    11.2613     3.2723    11.2706
+    (0.2, 0.4]         3332     2.9420     4.1570     4.2420
+    (0.4, 0.61]        3335   -13.1898     5.7745    13.1910
+
+  Near the money (|m| < 0.05) the mean residual is +12.8524;
+  averaged over the two outer wings it is -12.4875.
+  The sign flip is the convexity signature, and it is the result.
+
+  Correlation of |residual| with quantities the model never saw:
+    K*Gamma (curvature in S)   +0.2348
+    Vega                       -0.1623
+    T                          -0.1736
+
+  Mean |residual| falls from 10.0952 at the shortest maturities to
+  7.3490 at the longest, monotonically over the first five buckets.
+  Short-dated options are where the surface bends most sharply.
+
+==============================================================================
+FIGURES  ->  ml_plots/
+==============================================================================
+  wrote ml_dataset_overview.png, regression_residuals.png,
+        ridge_alpha_selection.png
+
+==============================================================================
+CHECKPOINT QUESTION
+==============================================================================
+  "Is the synthetic dataset traceable, and do linear models fail
+   where expected?"
+
+  Yes to both.
+
+  TRACEABLE. Reloading the saved CSV and recomputing every stage
+  from the stored input columns reproduces the file to 7.8e-14, and
+  put-call parity holds on the sampled parameters to 2.8e-14 by a
+  route that does not call the pricer at all. The split is a column
+  in the file, so the Week 7 models will see exactly this test set.
+
+  THEY FAIL WHERE EXPECTED. On the test split the linear model has
+  RMSE 10.4565 and a worst error of 26.2419 in currency units, against a
+  benchmark whose RMSE is 1.5e-14 - machine precision, not literally
+  zero, because the benchmark column is recomputed from the raw
+  inputs rather than copied. R^2 is 0.8230, which looks respectable
+  and is exactly why R^2 is the wrong statistic here.
+
+  The structure is the evidence, not the magnitude. Every item
+  below was predicted from convexity before the fit was run:
+    - mean residual near the money   +12.8524
+    - mean residual in the wings     -12.4875
+      a least-squares line through a convex function sits ABOVE it
+      in the interior and BELOW it at both ends, so the residual
+      changes sign. Predicted; observed.
+    - mean |residual|, T <= 0.08       10.0952
+    - mean |residual|, T in (1.0, 1.5] 7.3490
+      worst at short maturity, where the surface bends most
+      sharply; monotone over the first five maturity buckets,
+      with a slight uptick in the last (1.5-2y, 1185 rows).
+    - corr(|residual|, K*Gamma)      +0.2348
+      Gamma IS the curvature in S, and the model never saw it.
+
+  Ridge changes nothing: alpha fell to the grid floor and the test
+  RMSE matches OLS to 11 significant figures. With 14,000 training
+  rows and four features there is no variance to regularise. The
+  error here is bias, and a penalty on the coefficients cannot
+  touch bias. That is a useful negative result to have in hand
+  before Week 7 reaches for more complex models.
+
+  THE FAILURE IS THE FUNCTIONAL FORM, NOT THE FEATURES. Expanding
+  the SAME four features to degree two cuts test RMSE from 10.4565 to
+  2.2614, a factor of 4.6, with no new information added. The
+  information needed to price the option is already in [m, T, r,
+  sigma]; a linear map simply cannot extract it. That is the
+  Week 7 milestone stated as a measurement.
+
+  This sets the floor for Stage Gate 2 on 17 Nov: a tree ensemble or
+  a neural network has to beat 10.4565 test RMSE by enough to justify
+  its complexity, and beating 2.2614 is the more honest bar, since
+  degree-two polynomial regression is nearly free.
+
+==============================================================================
+SUMMARY
+==============================================================================
+  seed                           20260825
+  n_rows                         20000
+  n_train                        14000
+  n_val                          3000
+  n_test                         3000
+  traceability_worst             7.815970093361102e-14
+  parity_error                   2.842170943040401e-14
+  ols_basic_test_RMSE            10.456533886967845
+  ols_basic_test_MAE             8.955899902904271
+  ols_basic_test_R2              0.8229808670835264
+  ols_basic_test_maxerr          26.2418868299681
+  ridge_basic_test_RMSE          10.456533886898068
+  ridge_alpha                    1e-06
+  ols_extended_test_RMSE         7.959051462222459
+  ols_quadratic_test_RMSE        2.261367826590001
+  quadratic_improvement_factor   4.623986316607164
+  corr_absresid_KGamma           0.23480520721350218
+  mean_resid_atm                 12.852425144736632
+  mean_resid_wings               -12.48745303876188
+  mean_abs_resid_shortest_T      10.095175314124827
+  mean_abs_resid_longest_T       7.349037501221098
+
+  runtime 6.2 s
+
+Saved: data/synthetic_option_dataset.csv (the named deliverable)
+       results/w07_*.csv,  ml_plots/*.png
+
+Full console output written to: results/w07_console_output.txt

@@ -140,16 +140,101 @@ implied volatility. The filter is a consequence of a measured result, not a conv
 
 ---
 
-## 5. Next actions
+## 5. Download recipe
 
-| Action | Owner | By |
+*Added 11 November 2026. The download is still outstanding and is now the only thing
+blocking the real-data stage, so the steps are written out in full rather than left as
+"download the bhavcopy".*
+
+### 5.1 Choose the window first
+
+Pick **twelve consecutive monthly expiries ending with the last expiry before the download
+date**. Two constraints fix the choice:
+
+- the window must sit **entirely after July 2024**, so that one UDiFF parser handles every
+  file (section 3);
+- it must end on a **completed** expiry, so that every contract in the sample has a known
+  settlement.
+
+A window of November 2025 to October 2026 satisfies both. Write the chosen start and end
+months at the top of `data/raw/README.txt` so the sample is reproducible.
+
+### 5.2 Get the option prices
+
+NSE publishes a daily F&O bhavcopy. For twelve monthly expiries, what is needed is the
+file for each **trading day** in the window, or - if that proves too many files - the file
+for the last trading day of each week plus every expiry day.
+
+1. Go to **nseindia.com -> Reports -> Derivatives -> Daily Reports -> F&O Bhavcopy**
+   (currently `https://www.nseindia.com/all-reports-derivatives`).
+2. Set the date and download the **"F&O - UDiFF Common Bhavcopy Final"** ZIP.
+3. Save each ZIP **unextracted** into `data/raw/fo_bhavcopy/`, named by its date, for
+   example `fo_20261030.zip`. Keeping the original archives means the parser can be
+   re-run later without re-downloading anything.
+
+Do **not** unzip into the repository. The parser will read straight from the ZIP.
+
+> A browser session is required: a plain `requests.get` returns HTTP 403 (section 3).
+> There is no way around this from a script without impersonating a browser, which is
+> fragile and worth avoiding.
+
+### 5.3 Get the risk-free rate
+
+RBI publishes 91-day Treasury bill auction yields.
+
+1. **rbi.org.in -> Statistics -> Weekly Statistical Supplement**, or the Database on
+   Indian Economy at `dbie.rbi.org.in`.
+2. Export the **91-day T-bill implicit yield at cut-off price**, weekly, for the same
+   window plus one month either side (the extra month makes forward-filling safe at the
+   edges).
+3. Save as `data/raw/rbi_tbill_91d.csv`.
+
+### 5.4 Get the dividend yield
+
+1. **nseindia.com -> Market Data -> Indices -> NIFTY 50 -> Historical P/E, P/B and
+   Dividend Yield.**
+2. Export the daily series for the window.
+3. Save as `data/raw/nifty_dividend_yield.csv`.
+
+### 5.5 Get the underlying spot
+
+Already available: `week1.py` caches NIFTY 50 closes to `data/nifty50_prices.csv`. If the
+window extends past that cache, re-run `week1.py` with the end date advanced; it will
+re-download and re-cache.
+
+### 5.6 Sanity checks before any analysis
+
+Run these on the first file, before downloading the other eleven. Finding a problem now
+costs one download; finding it later costs twelve.
+
+| Check | Expected |
+|---|---|
+| Column names match section 2.1 | `TckrSymb`, `XpryDt`, `StrkPric`, `OptnTp`, `SttlmPric`, `OpnIntrst`, `TtlTradgVol` or the equivalents |
+| `TckrSymb == "NIFTY"` rows present | several thousand per day |
+| Both `CE` and `PE` present | yes |
+| Strike spacing | 50 points near the money |
+| `SttlmPric` non-zero for liquid strikes | yes |
+| Put-call parity on the same strike and expiry | holds to a few index points after the filters in section 4 |
+
+That last check is the important one, and it is the first genuine test of the real data.
+It is also the first point in the project where parity will **not** hold exactly - bid-ask
+spread, non-synchronous quotes and stale settlement prices all break it. The size of the
+violation is a useful measure of data quality, which is why it is worth recording rather
+than filtering away silently.
+
+---
+
+## 6. Next actions
+
+| Action | Owner | Status |
 |---|---|---|
-| Download one sample month of NIFTY option bhavcopy | Sanskar | 3 Nov |
-| Confirm the field names present in that file against section 2.1 | Sanskar | 3 Nov |
-| Download RBI 91-day T-bill series for the same window | Sanskar | Week 6 |
-| Download NSE NIFTY 50 dividend-yield series | Sanskar | Week 6 |
-| Agree the dataset specification in section 4 | supervisor review | Week 6 |
-| Download the remaining 11 months | Sanskar | Week 6 |
+| Download one sample month of NIFTY option bhavcopy | Sanskar | **outstanding - blocks Week 8** |
+| Run the section 5.6 checks on that month | Sanskar | after the download |
+| Confirm field names against section 2.1 | Sanskar | after the download |
+| Download RBI 91-day T-bill series | Sanskar | outstanding |
+| Download NSE NIFTY 50 dividend-yield series | Sanskar | outstanding |
+| Agree the dataset specification in section 4 | supervisor review | pending |
+| Download the remaining 11 months | Sanskar | after the checks pass |
 
 No cleaning, filtering or analysis has been done, in line with the Week 5 instruction that
 this task is sources and access notes only.

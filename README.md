@@ -31,7 +31,8 @@ Progression: **Mathematics -> Numerics -> Data -> Machine Learning -> Hybrid Pri
 | Post-midsem Week 3 | Greeks and implied volatility | **Complete** |
 | Post-midsem Week 4 | Binomial pricing and convergence | **Complete** |
 | Post-midsem Week 5 | Monte Carlo and three-method cross-validation | **Complete** |
-| Post-midsem Week 6 | ML experiment plan, synthetic dataset, regression | Not started |
+| Post-midsem Week 6 | ML experiment plan, synthetic dataset, regression baselines | **Complete** |
+| Post-midsem Week 7 | Tree ensemble and small neural network; Stage Gate 2 | In progress |
 
 Work follows the plan in `docs/Sanskar_Plan_to_15Dec.xlsx`, which carries the status and
 evidence link for every task.
@@ -55,12 +56,16 @@ programmatic requests, so it has to be downloaded by hand. See `data_sources.md`
 ├── implied_volatility.py   Newton + bisection fallback + bracket checks
 ├── binomial.py             CRR lattice, European and American, two routes
 ├── monte_carlo.py          risk-neutral terminal sampling, s.e. and 95% CI
+├── ml_dataset.py           synthetic dataset, split, and the traceability audit
+├── linear_models.py        OLS and Ridge in closed form, scaler, metrics
+├── ML_experiment_plan.md   the specification required by master plan 5.31
 ├── week1.py                August Week 1    - returns, distributions, normality
 ├── week2.py                September Wk 1   - Brownian motion and GBM
 ├── week3.py                September Wk 2   - Ito's lemma and Black-Scholes
 ├── postmidsem_week3.py     Post-midsem Wk 3 - Greeks and implied volatility
 ├── postmidsem_week4.py     Post-midsem Wk 4 - binomial pricing and convergence
 ├── postmidsem_week5.py     Post-midsem Wk 5 - Monte Carlo and the three-method grid
+├── postmidsem_week6.py     Post-midsem Wk 6 - synthetic dataset and regression
 ├── week3_evidence.py       regenerates the Stage Gate 1 evidence summary
 ├── data_sources.md         NSE / RBI sources, field mapping, access notes
 ├── data/                   cached NIFTY 50 price history
@@ -68,6 +73,7 @@ programmatic requests, so it has to be downloaded by hand. See `data_sources.md`
 ├── greeks_plots/           sensitivity and validation figures (post-midsem Wk 3)
 ├── binomial_plots/         convergence and oscillation figures (post-midsem Wk 4)
 ├── mc_plots/               Monte Carlo convergence and coverage (post-midsem Wk 5)
+├── ml_plots/               dataset overview and regression residuals (post-midsem Wk 6)
 ├── results/                all numerical output as CSV, plus console logs
 ├── reports/                submitted Word reports and the mid-semester deck
 ├── notebooks/              Jupyter notebooks and superseded component scripts
@@ -107,6 +113,7 @@ python week3.py             # ~3 s     September Week 2
 python postmidsem_week3.py  # ~2 min   Post-midsem Week 3
 python postmidsem_week4.py  # ~1 min   Post-midsem Week 4
 python postmidsem_week5.py  # ~3 s     Post-midsem Week 5
+python postmidsem_week6.py  # ~6 s     Post-midsem Week 6
 python week3_evidence.py    # ~20 s    Stage Gate 1 evidence summary
 ```
 
@@ -128,6 +135,8 @@ python greeks.py               # Greek identities and the PDE with exact derivat
 python implied_volatility.py   # recovery of a known sigma, accuracy by vega
 python binomial.py             # two CRR routes agree; convergence order; American put
 python monte_carlo.py          # unbiasedness, s.e. scaling, interval coverage
+python ml_dataset.py           # traceability chain, split, sampling distribution
+python linear_models.py        # exact recovery, ridge limits, scaling invariance
 ```
 
 Each runs a self-test over tens of thousands of random parameter sets and reports every
@@ -239,6 +248,35 @@ CRR error is deterministic: it shrinks predictably with `N` and its sign is know
 Monte Carlo error is random: it does not shrink predictably in any single run, but it is
 quantified ahead of time by an interval that never needs the true price. Neither is
 unexplained.
+
+### Post-midsem Week 6 - synthetic dataset and regression baselines
+
+20,000 synthetic calls, features `[m, T, r, sigma]`, target `C_BS / K`, 70/15/15 split
+stored in the data file. Errors in currency units at `K = 100`.
+
+| Quantity | Value |
+|---|---|
+| Traceability: recompute the whole chain from the saved CSV | worst **7.8e-14** |
+| Put-call parity on the sampled parameters, independent route | 2.8e-14 |
+| OLS `[m,T,r,sigma]`, test RMSE / R² | **10.4565** / 0.8230 |
+| Ridge, test RMSE | 10.4565 - alpha at the grid floor, **no effect** |
+| OLS extended with Greeks, test RMSE | 7.9591 |
+| **OLS quadratic in the same four features** | **2.2614** - a 4.6x cut, no new information |
+| Black-Scholes benchmark, test RMSE | 1.5e-14 (machine precision) |
+| Mean residual: at the money / wings | **+12.85 / -12.49** |
+| corr(abs residual, `K*Gamma`) | **+0.235** |
+
+Three things worth carrying forward. The benchmark here is exact, so **no model can beat
+it** and a model that appeared to would be a bug; the point of the synthetic stage is a
+calibrated failure, not a contest. Ridge does nothing because the error is **bias, not
+variance** - a coefficient penalty cannot touch bias. And the failure is the **functional
+form, not the features**: a degree-two expansion of the same four variables cuts the error
+by a factor of 4.6 without adding any information.
+
+The dataset is calls only. A call and a put at the same parameters share a feature vector
+but not a price, so admitting puts makes the target two-valued and drops `R²` from 0.823
+to 0.060; puts follow exactly by parity instead. This was caught by measurement rather
+than inspection, and the mixed-set number is kept in the results as the evidence.
 
 ---
 
