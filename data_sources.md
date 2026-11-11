@@ -204,37 +204,82 @@ re-download and re-cache.
 
 ### 5.6 Sanity checks before any analysis
 
-Run these on the first file, before downloading the other eleven. Finding a problem now
-costs one download; finding it later costs twelve.
+**This is automated.** `nse_data.py` reads the ZIP, resolves the column names, filters to
+NIFTY options, computes the implied forward per expiry and runs every check below:
 
-| Check | Expected |
-|---|---|
-| Column names match section 2.1 | `TckrSymb`, `XpryDt`, `StrkPric`, `OptnTp`, `SttlmPric`, `OpnIntrst`, `TtlTradgVol` or the equivalents |
-| `TckrSymb == "NIFTY"` rows present | several thousand per day |
-| Both `CE` and `PE` present | yes |
-| Strike spacing | 50 points near the money |
-| `SttlmPric` non-zero for liquid strikes | yes |
-| Put-call parity on the same strike and expiry | holds to a few index points after the filters in section 4 |
+```
+python nse_data.py data/raw/fo_bhavcopy/fo_20261030.zip
+```
 
-That last check is the important one, and it is the first genuine test of the real data.
-It is also the first point in the project where parity will **not** hold exactly - bid-ask
-spread, non-synchronous quotes and stale settlement prices all break it. The size of the
-violation is a useful measure of data quality, which is why it is worth recording rather
-than filtering away silently.
+Run it on the **first** file, before downloading the other eleven. Finding a layout problem
+now costs one download; finding it in December costs twelve.
+
+| # | Check | Expected |
+|---|---|---|
+| 1 | NIFTY option rows present | several thousand per day |
+| 2 | Both `CE` and `PE` present, in rough balance | yes |
+| 3 | Strike spacing near the money | 50 points |
+| 4 | Settlement price non-zero where there was volume | under 5% zeros |
+| 5 | No negative or missing prices or strikes | zero rows |
+| 6a | Put-call parity on matched strikes | a few index points |
+| 6b | Dividend yield implied by the forward | within 1 pp of the 1.5% assumed |
+
+**On the column names.** `nse_data.py` was written without a real bhavcopy to inspect, so
+the UDiFF names in it come from the NSE circular and section 2.1 above, not from an
+inspected file. It resolves every column through an alias table and **fails loudly** if one
+cannot be matched, printing the columns actually found. If that happens, add the real name
+to `COLUMN_ALIASES` in `nse_data.py` and re-run - nothing else needs to change. It never
+guesses by position, because a half-parsed options file that looks plausible is worse than
+an exception.
+
+**Why check 6 is split in two.** 6a compares $C - P$ against $e^{-rT}(F - K)$ across
+strikes, where $F$ is the forward implied by the most liquid put-call pair. That catches a
+*strike-dependent* violation, which is the usual symptom of stale quotes in the wings.
+
+It cannot catch a *uniform* offset on one side, and the reason is worth stating because it
+was found by testing rather than by reasoning: $F$ is estimated from the same put-call pair
+that 6a then checks, so adding a constant to every call price shifts $F$ by exactly the same
+amount and the residual stays at zero. A settlement-convention error or the wrong price
+column would look exactly like that, and 6a would report everything fine.
+
+6b closes the gap by inverting $F = Se^{(r-q)T}$ for the implied dividend yield,
+
+$$q_{\text{implied}} = r - \frac{1}{T}\ln\!\left(\frac{F}{S}\right),$$
+
+and comparing it against the 1.5% the project assumes. Spot comes from a different column,
+so the offset cannot be absorbed. Stating it as a yield also makes the tolerance
+maturity-correct automatically - the same price offset matters far more at one month than at
+one year - and makes the output interpretable: *"the options imply a dividend yield of
+-3.0%"* is obviously wrong in a way that *"the forward is 0.16% off"* is not.
+
+`test_nse_data.py` builds a fixture shaped like a real bhavcopy, with arbitrage-consistent
+prices and deliberately planted defects, and confirms that each defect is caught, that a
+wrong layout raises rather than returning nonsense, and that 6a's blindness to a uniform
+offset is covered by 6b. 32 checks, all passing. It is a fixture, not the real file, so it
+proves the logic rather than the column names.
+
+**Parity will not hold exactly on real data.** Bid-ask spread, non-synchronous closes and
+stale settlement prices all break it. A few index points is normal; tens of points means
+the settlement prices are suspect. The size of the violation is a measure of data quality
+and should be recorded rather than filtered away silently.
 
 ---
 
 ## 6. Next actions
 
-| Action | Owner | Status |
-|---|---|---|
-| Download one sample month of NIFTY option bhavcopy | Sanskar | **outstanding - blocks Week 8** |
-| Run the section 5.6 checks on that month | Sanskar | after the download |
-| Confirm field names against section 2.1 | Sanskar | after the download |
-| Download RBI 91-day T-bill series | Sanskar | outstanding |
-| Download NSE NIFTY 50 dividend-yield series | Sanskar | outstanding |
-| Agree the dataset specification in section 4 | supervisor review | pending |
-| Download the remaining 11 months | Sanskar | after the checks pass |
+| Action | Owner | Due | Status |
+|---|---|---|---|
+| Download the first month of NIFTY option bhavcopy | Sanskar | **Sat 14 Nov** | outstanding |
+| Run `python nse_data.py <file>` on it | Sanskar | Sat 14 Nov | automated, ready |
+| Fix `COLUMN_ALIASES` if any column fails to resolve | Sanskar | Sat 14 Nov | only if needed |
+| Download RBI 91-day T-bill series | Sanskar | Stage Gate 2 | outstanding |
+| Download NSE NIFTY 50 dividend-yield series | Sanskar | Stage Gate 2 | outstanding |
+| Download the remaining eleven expiries | Sanskar | **Mon 17 Nov** | after the checks pass |
+| Agree the dataset specification in section 4 | supervisor | Stage Gate 2 | pending |
+
+Note the 21-day warm-up: `sigma_hist` (`ML_experiment_plan.md` section 4.1) needs a month of
+returns before the first usable date, so the modelling window starts one month after the raw
+data window. Choose the window in section 5.1 with that in mind rather than trimming later.
 
 No cleaning, filtering or analysis has been done, in line with the Week 5 instruction that
 this task is sources and access notes only.

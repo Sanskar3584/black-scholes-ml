@@ -58,6 +58,8 @@ programmatic requests, so it has to be downloaded by hand. See `data_sources.md`
 ├── monte_carlo.py          risk-neutral terminal sampling, s.e. and 95% CI
 ├── ml_dataset.py           synthetic dataset, split, and the traceability audit
 ├── linear_models.py        OLS and Ridge in closed form, scaler, metrics
+├── nse_data.py             bhavcopy reader, implied forward, data-quality checks
+├── test_nse_data.py        fixture tests for the above (32 checks)
 ├── ML_experiment_plan.md   the specification required by master plan 5.31
 ├── week1.py                August Week 1    - returns, distributions, normality
 ├── week2.py                September Wk 1   - Brownian motion and GBM
@@ -137,6 +139,13 @@ python binomial.py             # two CRR routes agree; convergence order; Americ
 python monte_carlo.py          # unbiasedness, s.e. scaling, interval coverage
 python ml_dataset.py           # traceability chain, split, sampling distribution
 python linear_models.py        # exact recovery, ridge limits, scaling invariance
+python test_nse_data.py        # bhavcopy reader against a synthetic fixture
+```
+
+Once the first bhavcopy is downloaded (see `data_sources.md` section 5):
+
+```
+python nse_data.py data/raw/fo_bhavcopy/fo_<date>.zip
 ```
 
 Each runs a self-test over tens of thousands of random parameter sets and reports every

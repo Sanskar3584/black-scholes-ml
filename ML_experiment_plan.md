@@ -4,6 +4,9 @@
 **Author:** Sanskar Joshi · **Supervisor:** Prof. Ashok Kumar Vaikuntam
 **Written:** 11 November 2026 · **Plan ref:** master plan sections 5.1 to 5.31, 11.6 and 11.7
 **Status:** design document, fixed before any model is fitted
+**Revision 2, 11 November 2026**, after the Week 6 review: section 4.1 (which volatility is
+the feature on market data) and section 6.2 (how puts enter on market data) are new; the
+sampling table in section 6 was stale and is corrected in section 6.1.
 
 ---
 
@@ -15,9 +18,18 @@ answers must be fixed before the models are fitted, not written up afterwards to
 whatever came out. This document fixes them.
 
 Everything below applies to the **synthetic** stage, which is Weeks 6 and 7. The real-market
-stage changes two things only: the split becomes chronological (section 3.3 below) and the
-target becomes a traded price rather than an exact one. Those changes are flagged where they
-arise.
+stage changes four things, each flagged where it arises:
+
+| Change | Section |
+|---|---|
+| the split becomes chronological | 3.3 |
+| the target becomes a traded price rather than an exact one | 1, row 2 |
+| `sigma` can no longer be the contract's own implied volatility | **4.1** |
+| calls only becomes out-of-the-money only, converted by parity | **6.2** |
+
+The last two were added after the Week 6 review. Both are cases where a specification that
+is correct on synthetic data becomes silently wrong on market data without changing a single
+symbol, which is exactly the kind of thing this document exists to catch.
 
 ---
 
@@ -133,15 +145,69 @@ floating-point precision. The driver asserts this.
 1. Fit every preprocessing step on training data only. This covers scaling, feature
    selection, PCA and any imputation.
 2. Derive nothing from the target. No feature may be a function of `y`.
-3. Draw the split before the model exists, and store it with the data.
-4. Touch the test set once.
-5. For market data, respect time order in the split and in any rolling statistic.
+3. **On market data, never use the option's own implied volatility as a feature.**
+   See section 4.1 - this is the one that would actually have bitten.
+4. Draw the split before the model exists, and store it with the data.
+5. Touch the test set once.
+6. For market data, respect time order in the split and in any rolling statistic.
 
 Rule 2 deserves a note. `C_BS` is computed from the same parameters that produce the
 features, so in a trivial sense everything here is a function of everything else. The
 operative distinction is whether a feature could be computed at prediction time without
 already knowing the answer. `m`, `T`, `r` and `sigma` can be. The Greeks can be too, which
 is why the extended set is permitted at all - but see section 2.2.
+
+### 4.1 Which volatility is the feature
+
+*Added 11 November 2026, after the Week 6 review. The plan said `sigma` was a feature and
+left it at that, which is fine on synthetic data and silently wrong on market data.*
+
+On synthetic data `sigma` is an **input**: it is drawn first and the price is computed from
+it. There is no circularity, and nothing to decide.
+
+On market data there is no such thing as "the" volatility. What exists is a traded price.
+Implied volatility is obtained by **inverting that price** through Black-Scholes, so for a
+given contract on a given day,
+
+```
+sigma_implied  =  f(market price)  =  f(target)
+```
+
+Using it as a feature would be feeding the model an invertible transformation of the answer.
+The model would score beautifully and would have learned nothing beyond the Black-Scholes
+formula it was handed, and the failure would be invisible in the metrics - which is the
+dangerous kind.
+
+This is a strict violation of rule 2 and it is now rule 3 in its own right, because it is
+not obvious from the symbol `sigma` alone that it has changed meaning between the two
+stages.
+
+**What is used instead.** Three admissible candidates, all computable at prediction time
+without the contract's own price:
+
+| Candidate | Definition | Comment |
+|---|---|---|
+| **`sigma_hist`** | realised volatility of NIFTY log returns over the previous 21 trading days, annualised | the primary choice: no option data at all, so it cannot leak |
+| `sigma_iv_prev` | the same contract's implied volatility from the **previous** trading day's close | legitimate under rule 6, but carries stale-quote risk and is undefined on a contract's first day |
+| `sigma_atm_prev` | previous day's at-the-money implied volatility for the same expiry | a single level per expiry rather than per contract; smoother, and the usual practitioner choice |
+
+**Decision:** `sigma_hist` is the baseline feature. `sigma_atm_prev` is reported as a second
+specification, because the gap between them measures how much of the surface is *forward*
+information rather than backward-looking realised volatility, which is itself a result worth
+having. `sigma_iv_prev` is not used: per-contract lagged IV in the illiquid wings is mostly
+stale-quote noise, which Week 3 already quantified.
+
+Both admissible features need a 21-day warm-up before the first usable date, and
+`sigma_atm_prev` needs the previous session. The chronological split in section 3.3 must
+therefore start at least one month after the raw data window begins. Recorded here so the
+window is chosen with the warm-up in mind rather than being trimmed afterwards.
+
+**A note on the residual-learning target (Week 8).** Hybrid A predicts
+`epsilon = C_market - C_BS`. Computing `C_BS` needs a volatility, and if that volatility
+were the contract's own implied volatility then `C_BS` would equal `C_market` by
+construction and the residual would be identically zero. The same rule applies: the
+benchmark `C_BS` is computed with `sigma_hist` or `sigma_atm_prev`, never with the
+contract's own IV.
 
 ---
 
@@ -191,9 +257,9 @@ meaningless.
 | `K` | log-uniform | `S*exp(-0.6)` to `S*exp(0.6)` | Gives `m` uniform on `[-0.6, 0.6]`, so moneyness is sampled evenly rather than bunching at the money. |
 | `T` | log-uniform | 1 week to 2 years | Short maturities matter disproportionately: that is where curvature lives. Uniform sampling would under-represent them. |
 | `r` | uniform | 3% to 8% | Spans the plausible Indian policy-rate range over the data window. |
-| `sigma` | uniform | 10% to 60% | Spans NIFTY realised volatility including stressed periods. |
+| `sigma` | uniform | 10% to 60% | Spans NIFTY realised volatility including stressed periods. On market data this feature changes meaning entirely - see section 4.1. |
 | `q` | fixed at 1.5% | - | The NIFTY 50 index dividend yield, carried through from Week 5. |
-| type | call and put | 50 / 50 | Both, so parity can be checked inside the dataset. |
+| type | **calls only** | - | Puts follow exactly by parity; including them makes the target two-valued. See section 6.1. |
 
 Size: 20,000 rows. Large enough that the 15% test split has 3,000 rows and the metric
 standard errors are small; small enough to regenerate in seconds.
@@ -201,6 +267,65 @@ standard errors are small; small enough to regenerate in seconds.
 Log-uniform sampling for `K` and `T` is the one choice here that is not obvious, and it is
 deliberate. Under uniform `T` on `[0.02, 2]`, only about 1% of rows would have `T < 0.04`,
 which is exactly the region the week is about.
+
+### 6.1 Calls only, and why - corrected 11 November 2026
+
+*This table previously said "call and put, 50/50". That was the original design; it was
+changed during Week 6 after measurement, and this section was not updated at the time.
+The code and the Week 6 report were correct; this document was stale.*
+
+A call and a put sharing `(S, K, T, r, sigma, q)` have the **same feature vector**
+`x = [m, T, r, sigma]` but different prices. The target is therefore two-valued at every
+point in feature space and no function of `x` can separate the two. Measured on the
+dataset: median `|y_call - y_put|` at one and the same `x` is **0.2777**, against a target
+spread of **0.2093** - the ambiguity exceeds the signal. Test `R^2` for OLS falls from
+**0.823** on calls alone to **0.060** on the mixed set.
+
+An `is_call` indicator would resolve the ambiguity but would be redundant: put-call parity
+makes the put an exact affine function of the call at the same parameters, so a model
+trained on calls prices puts exactly with no further fitting. Puts add no information and
+double the data. The parity audit does not need put rows either, since
+`put_call_parity_error` computes both sides from the parameters.
+
+`build_dataset(include_puts=True)` still produces the mixed set; the Week 6 driver uses it
+once, as a labelled diagnostic, so the cost is measured in the results rather than asserted
+in prose.
+
+### 6.2 How puts enter on market data
+
+*Added 11 November 2026 after the Week 6 review. Calls only is right for synthetic data and
+would be wrong for NIFTY, for a reason that has nothing to do with the argument above.*
+
+The synthetic argument assumed the call price is **observable** at every strike. On NIFTY it
+is not. Liquidity migrates to whichever side is out of the money: below the spot the traded
+contracts are puts, above it they are calls. In-the-money quotes on either side are wide,
+stale, or absent. So "use calls" at low strikes would mean using the illiquid side of the
+market, and parity would then be importing noise rather than information.
+
+**Convention adopted: out-of-the-money only, converted to a call-equivalent price.**
+
+1. For each (expiry, strike), compute the **implied forward** `F` from the most liquid
+   put-call pair for that expiry, by parity: `F = K* + e^{rT}(C* - P*)` at the strike `K*`
+   where `|C - P|` is smallest, which is the strike nearest the forward and the one where
+   both sides are liquid. The forward is taken from the market rather than from
+   `S e^{(r-q)T}`, which would require trusting a borrowed dividend-yield series; the
+   difference between the two is worth recording as a data-quality measure.
+2. Keep **OTM contracts only**: puts for `K < F`, calls for `K > F`. At `K ~ F` keep the
+   side with greater volume.
+3. Convert every retained put to its **call-equivalent** price by parity,
+   `C = P + e^{-rT}(F - K)`, and model `y = C/K` exactly as on synthetic data.
+4. Record the conversion in a `source_side` column, so any result can be re-examined by
+   side. If model error turns out to differ systematically between converted puts and
+   native calls, that is a data-quality finding, not a modelling one, and it must stay
+   visible.
+
+Two consequences follow and are accepted deliberately. The conversion makes each retained
+contract's target depend on `F`, which is estimated from a different pair of contracts, so a
+mis-estimated forward biases a whole expiry rather than one row; step 1 is therefore checked
+per expiry rather than assumed. And the OTM filter interacts with the moneyness filter
+`|ln(S/K)| <= 0.3` already proposed in `data_sources.md` section 4 - the two must be applied
+in the order OTM first, moneyness second, so the moneyness band is measured against the
+implied forward rather than against spot.
 
 ---
 
@@ -238,6 +363,10 @@ Recorded now rather than defended later.
 | Log-uniform `T` | uniform | Uniform under-samples short maturity, which is where the result is. |
 | Greeks reported but not headline | include them | They are derivatives of the target and hand over most of the local shape. |
 | No error target for Week 6 | set one | A target would invite tuning the data distribution to meet it. |
+| Calls only (synthetic) | mix in puts, or add an `is_call` flag | Mixing makes the target two-valued; the flag is redundant under parity. Measured: `R^2` 0.823 to 0.060 (6.1). |
+| OTM only, converted by parity (market) | calls only, as synthetic | NIFTY liquidity is on the OTM side; "calls only" at low strikes means using the illiquid side (6.2). |
+| `sigma_hist` as the volatility feature | the contract's own IV | The contract's own IV is inverted from the target. Strict leakage (4.1). |
+| Implied forward from the market | `S e^{(r-q)T}` | Avoids trusting a borrowed dividend series; the gap between the two measures data quality (6.2). |
 
 ---
 
@@ -246,9 +375,45 @@ Recorded now rather than defended later.
 Week 7 adds a tree ensemble and a small neural network (`p -> 32 -> 16 -> 1`, per section
 5.20's complexity restriction). The specification above applies unchanged: same features,
 same target, same split, same scaler, same once-only test evaluation. Hyperparameters for
-both are selected on validation alone.
+both are selected on validation alone. The network is implemented in NumPy with the forward
+and backward passes written out and the gradients verified against finite differences, so
+every question in section 5.31 has an answer that does not begin "the library does it".
 
-Stage Gate 2 on 17 November asks whether added model complexity gives a meaningful gain over
-regression. The linear numbers produced this week are the baseline that question is measured
-against, which is why they are produced before the complex models exist rather than
-alongside them.
+### 9.1 Why RMSE alone will not settle Stage Gate 2
+
+On noiseless synthetic data a tree ensemble or a network will beat the quadratic baseline of
+2.2614 without difficulty. That tells us the model has capacity, which was never in doubt;
+it does not tell us the model has learned anything a pricing desk could use.
+
+The gate evidence is therefore, for **every** model including the Week 6 baselines:
+
+1. **The same residual tables** by moneyness and by maturity as Week 6, so the structure of
+   the error can be compared across models on identical buckets rather than collapsed into
+   one number.
+
+2. **Financial consistency checks on the predictions**, per master plan 5.28, reported as
+   **counts of violations** rather than averages. An average hides the failure mode
+   completely: a model can have excellent mean error and still return a negative price on
+   one point in fifty.
+
+   | Check | Condition |
+   |---|---|
+   | non-negativity | `C_hat >= 0` |
+   | intrinsic lower bound | `C_hat >= max(0, S e^{-qT} - K e^{-rT})` |
+   | upper bound | `C_hat <= S e^{-qT}` |
+   | monotone in moneyness | `C_hat` non-decreasing in `m` at fixed `(T, r, sigma)` |
+   | convex in strike | second difference of `C_hat` in `K` is non-negative |
+
+   Each is reported as a count, a percentage, and the worst single violation, broken down by
+   moneyness bucket so it is visible *where* a model misbehaves.
+
+3. **Monotonicity and convexity are tested on a grid**, not on the test sample. They are
+   statements about the fitted function, so they are evaluated by sweeping `m` and `K` on a
+   fine grid at fixed other parameters - which also probes regions the test split happens
+   not to cover.
+
+An unconstrained network is expected to fail non-negativity in the deep wings, where the
+true price is near zero and nothing in the squared-error loss penalises going slightly
+below it. That is a prediction, recorded here before the model is fitted. If it happens, the
+remedy belongs in the model specification (a non-negative output transform) rather than in
+post-hoc clipping, and the choice will be stated rather than quietly applied.
