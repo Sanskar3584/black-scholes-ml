@@ -164,7 +164,7 @@ shifted = nse_data.filter_nifty_options(
 fs = nse_data.implied_forward(shifted, r=R, verbose=False)
 rs = nse_data.run_quality_checks(shifted, fwd=fs, r=R, verbose=False)
 expect("6a is BLIND to a uniform offset (documented limitation)",
-       rs["6a parity shape, matched strikes"]["ok"] is True,
+       rs["6a parity shape (both legs traded, |m|<=0.3)"]["ok"] is True,
        "- the forward absorbs it")
 expect("6b catches the uniform offset", 
        rs["6b implied dividend yield"]["ok"] is False,

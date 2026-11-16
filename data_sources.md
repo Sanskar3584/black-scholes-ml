@@ -161,22 +161,46 @@ months at the top of `data/raw/README.txt` so the sample is reproducible.
 
 ### 5.2 Get the option prices
 
+*URLs confirmed 16 November 2026.*
+
 NSE publishes a daily F&O bhavcopy. For twelve monthly expiries, what is needed is the
 file for each **trading day** in the window, or - if that proves too many files - the file
 for the last trading day of each week plus every expiry day.
 
-1. Go to **nseindia.com -> Reports -> Derivatives -> Daily Reports -> F&O Bhavcopy**
-   (currently `https://www.nseindia.com/all-reports-derivatives`).
-2. Set the date and download the **"F&O - UDiFF Common Bhavcopy Final"** ZIP.
-3. Save each ZIP **unextracted** into `data/raw/fo_bhavcopy/`, named by its date, for
-   example `fo_20261030.zip`. Keeping the original archives means the parser can be
-   re-run later without re-downloading anything.
+**Route A - the reports page (do this first).**
 
-Do **not** unzip into the repository. The parser will read straight from the ZIP.
+1. Go to **<https://www.nseindia.com/all-reports-derivatives>**.
+2. Find **"F&O - UDiFF Common Bhavcopy Final (zip)"**. The legacy *F&O Bhavcopy* on the
+   same page is marked discontinued with effect from 8 July 2024; do not use it.
+3. Set the date and download.
 
-> A browser session is required: a plain `requests.get` returns HTTP 403 (section 3).
-> There is no way around this from a script without impersonating a browser, which is
-> fragile and worth avoiding.
+**Route B - direct archive URL.** Once route A has been done once and the pattern
+confirmed, the file for a given date can be fetched straight from the archive host:
+
+```
+https://nsearchives.nseindia.com/content/fo/BhavCopy_NSE_FO_0_0_0_<YYYYMMDD>_F_0000.csv.zip
+```
+
+for example `..._20261030_F_0000.csv.zip` for 30 October 2026. Paste it into the browser
+address bar - it still needs a browser session, so this is a convenience for clicking
+through dates quickly, not a way to script the download.
+
+For reference, the pre-change legacy path was
+`content/historical/DERIVATIVES/<YYYY>/<MON>/fo<DDMONYYYY>bhav.csv.zip`, which is why the
+window must sit entirely after July 2024 (section 5.1).
+
+**Saving.** Put each ZIP **unextracted** into `data/raw/fo_bhavcopy/`, named by its date,
+for example `fo_20261030.zip`. Keeping the original archives means the parser can be re-run
+later without re-downloading. Do **not** unzip into the repository: `nse_data.py` reads
+straight from the ZIP.
+
+> A browser session is required either way: a plain `requests.get` returns HTTP 403
+> (section 3). There is no way around that from a script without impersonating a browser,
+> which is fragile and worth avoiding.
+
+**One confirmation worth noting.** The UDiFF volume column really is `TtlTradgVol`, which
+is what `COLUMN_ALIASES` in `nse_data.py` already expects. That is one of the guessed names
+verified; the rest are still unconfirmed until a real file is opened.
 
 ### 5.3 Get the risk-free rate
 

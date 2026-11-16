@@ -1,0 +1,264 @@
+
+==============================================================================
+POST-MIDSEM WEEK 7 - TREE, NETWORK, AND STAGE GATE 2
+==============================================================================
+Post-midsem plan Week 7 (11-17 Nov 2026); master plan 11.8
+Seed 20260825 throughout.
+
+==============================================================================
+MODULE SELF-TESTS
+==============================================================================
+  ml_dataset.py          ALL CHECKS PASSED
+  linear_models.py       ALL CHECKS PASSED
+  tree_models.py         ALL CHECKS PASSED
+  neural_net.py          ALL CHECKS PASSED
+  financial_checks.py    ALL CHECKS PASSED
+
+==============================================================================
+FITTING  (training and validation only)
+==============================================================================
+  frozen Week 6 split: 14000 train, 3000 val, 3000 test
+  OLS ...
+  Ridge (alpha on validation) ...
+    alpha = 1.000e-06
+  OLS quadratic ...
+  Random forest (60 trees) ...
+      20/60 trees
+      40/60 trees
+      60/60 trees
+    fitted in 7.8 s; OOB RMSE 0.7898 (currency)
+  Neural network p -> 32 -> 16 -> 1 ...
+      epoch  50  train 4.290e-04  val 4.538e-04
+      epoch 100  train 1.466e-04  val 1.494e-04
+      epoch 150  train 4.805e-05  val 5.214e-05
+      epoch 200  train 2.373e-05  val 2.474e-05
+      epoch 250  train 1.867e-05  val 1.921e-05
+      epoch 300  train 1.743e-05  val 1.784e-05
+      epoch 350  train 1.047e-05  val 1.054e-05
+      epoch 400  train 6.782e-06  val 7.050e-06
+    fitted in 6.8 s; best epoch 381 of 400
+  Neural network, softplus output (non-negative by construction) ...
+    best epoch 396
+
+==============================================================================
+TASK 3  -  OLS / RIDGE / TREE / ANN COMPARISON  (master plan 11.8)
+==============================================================================
+  Errors in currency units at K = 100. Test split scored ONCE,
+  at the end, after every model was frozen (5.10.3).
+
+  model            split         MAE       RMSE         R2    max error
+  OLS              train      9.1084    10.6248   0.822668      26.6709
+  OLS              val        9.1278    10.6222   0.815843      26.4746
+  OLS              test       8.9559    10.4565   0.822981      26.2419
+  Ridge            train      9.1084    10.6248   0.822668      26.6709
+  Ridge            val        9.1278    10.6222   0.815843      26.4746
+  Ridge            test       8.9559    10.4565   0.822981      26.2419
+  OLS quadratic    train      1.8358     2.2582   0.991989      12.0710
+  OLS quadratic    val        1.8481     2.2639   0.991635      10.6141
+  OLS quadratic    test       1.8292     2.2614   0.991721      11.0790
+  Random forest    train      0.3210     0.5140   0.999585       4.9474
+  Random forest    val        0.4818     0.7736   0.999023       5.0398
+  Random forest    test       0.5001     0.8195   0.998913       7.1816
+  Neural net       train      0.1733     0.2335   0.999914       1.6970
+  Neural net       val        0.1767     0.2395   0.999906       1.1720
+  Neural net       test       0.1829     0.2478   0.999901       1.3906
+  Neural net (softplus) train      0.1204     0.1735   0.999953       1.2621
+  Neural net (softplus) val        0.1299     0.1901   0.999941       1.2653
+  Neural net (softplus) test       0.1302     0.1952   0.999938       1.7711
+  Black-Scholes    train      0.0000     0.0000   1.000000       0.0000
+  Black-Scholes    val        0.0000     0.0000   1.000000       0.0000
+  Black-Scholes    test       0.0000     0.0000   1.000000       0.0000
+
+  Test RMSE, relative to the quadratic baseline:
+    OLS               10.4565    4.62x the quadratic
+    Ridge             10.4565    4.62x the quadratic
+    OLS quadratic      2.2614    1.00x the quadratic
+    Random forest      0.8195    0.36x the quadratic
+    Neural net         0.2478    0.11x the quadratic
+    Neural net (softplus)   0.1952    0.09x the quadratic
+
+==============================================================================
+TASK 4  -  RESIDUALS BY m, T AND sigma  (master plan 5.29)
+==============================================================================
+  5.29: 'The student shall not report only one global error
+  statistic.' Same buckets as Week 6, so the models are
+  comparable bucket by bucket rather than only in aggregate.
+
+  mean |residual| by m:
+    bucket                    OLS          Ridge  OLS quadratic  Random forest     Neural net Neural net (so
+    (-0.61, -0.4]         11.8903        11.8903         2.1453         0.0823         0.1345         0.0385
+    (-0.4, -0.2]           3.2793         3.2793         2.2054         0.1402         0.1362         0.0616
+    (-0.2, -0.05]          9.3833         9.3833         1.5564         0.2784         0.2026         0.1344
+    (-0.05, 0.05]         12.9365        12.9365         2.7883         0.5424         0.2082         0.1855
+    (0.05, 0.2]           10.7530        10.7530         2.2200         0.7048         0.2234         0.1815
+    (0.2, 0.4]             4.1527         4.1527         0.7462         0.8497         0.2067         0.1673
+    (0.4, 0.61]           12.5745        12.5745         1.7031         0.8925         0.1949         0.1820
+
+  mean |residual| by T:
+    bucket                    OLS          Ridge  OLS quadratic  Random forest     Neural net Neural net (so
+    (0.0, 0.08]           10.0911        10.0911         2.0861         0.3416         0.1499         0.1056
+    (0.08, 0.25]           9.6113         9.6113         1.6611         0.3690         0.1492         0.1054
+    (0.25, 0.5]            8.6582         8.6582         1.3916         0.4365         0.1724         0.1185
+    (0.5, 1.0]             7.7094         7.7094         1.6549         0.5415         0.2215         0.1462
+    (1.0, 1.5]             7.2444         7.2444         2.1018         0.7881         0.2575         0.1759
+    (1.5, 2.01]            7.1433         7.1433         2.3166         1.4102         0.2977         0.2687
+
+  mean |residual| by sigma:
+    bucket                    OLS          Ridge  OLS quadratic  Random forest     Neural net Neural net (so
+    (0.09, 0.2]            9.7746         9.7746         2.0187         0.4484         0.1851         0.1308
+    (0.2, 0.3]             9.3344         9.3344         1.7234         0.4482         0.1578         0.1188
+    (0.3, 0.4]             8.8932         8.8932         1.6849         0.4892         0.1759         0.1233
+    (0.4, 0.5]             8.5644         8.5644         1.7684         0.5084         0.1932         0.1200
+    (0.5, 0.61]            8.2155         8.2155         1.9483         0.6063         0.2025         0.1582
+
+
+==============================================================================
+TASK 5  -  FINANCIAL CONSISTENCY  (master plan 5.28), AS COUNTS
+==============================================================================
+  Reported as counts, percentages and the worst single violation,
+  not as averages. An average hides a model that prices one point
+  in fifty below zero.
+
+  Checks 1-3 are pointwise, on the 3,000 test rows. Checks 4-6 are
+  statements about the FITTED FUNCTION, so they are swept on a
+  grid holding other inputs fixed - which also probes regions the
+  test split does not happen to cover.
+
+  model                      check            scope          n viol       %        worst
+  OLS                        C >= 0           test sample       679  22.63%    4.026e+01   <--
+  OLS                        C >= intrinsic   test sample      1272  42.40%    4.026e+01   <--
+  OLS                        C <= S e^-qT     test sample         0   0.00%    0.000e+00
+  OLS                        dC/dS >= 0       grid sweep          0   0.00%    0.000e+00
+  OLS                        dC/dsigma >= 0   grid sweep          0   0.00%    0.000e+00
+  OLS                        d2C/dK2 >= 0     grid sweep       9540 100.00%    1.177e-02   <--
+  Ridge                      C >= 0           test sample       679  22.63%    4.026e+01   <--
+  Ridge                      C >= intrinsic   test sample      1272  42.40%    4.026e+01   <--
+  Ridge                      C <= S e^-qT     test sample         0   0.00%    0.000e+00
+  Ridge                      dC/dS >= 0       grid sweep          0   0.00%    0.000e+00
+  Ridge                      dC/dsigma >= 0   grid sweep          0   0.00%    0.000e+00
+  Ridge                      d2C/dK2 >= 0     grid sweep       9540 100.00%    1.177e-02   <--
+  OLS quadratic              C >= 0           test sample       586  19.53%    5.415e+00   <--
+  OLS quadratic              C >= intrinsic   test sample      1067  35.57%    5.415e+00   <--
+  OLS quadratic              C <= S e^-qT     test sample         0   0.00%    0.000e+00
+  OLS quadratic              dC/dS >= 0       grid sweep       2015  20.99%    3.787e-01   <--
+  OLS quadratic              dC/dsigma >= 0   grid sweep       6693  11.15%    1.419e-02   <--
+  OLS quadratic              d2C/dK2 >= 0     grid sweep          0   0.00%    0.000e+00
+  Random forest              C >= 0           test sample         0   0.00%    0.000e+00
+  Random forest              C >= intrinsic   test sample       384  12.80%    3.175e+00   <--
+  Random forest              C <= S e^-qT     test sample         0   0.00%    0.000e+00
+  Random forest              dC/dS >= 0       grid sweep         83   0.86%    1.270e-01   <--
+  Random forest              dC/dsigma >= 0   grid sweep       2855   4.76%    7.229e-01   <--
+  Random forest              d2C/dK2 >= 0     grid sweep       3584  37.57%    1.751e+01   <--
+  Neural net                 C >= 0           test sample       476  15.87%    1.780e+00   <--
+  Neural net                 C >= intrinsic   test sample       896  29.87%    1.780e+00   <--
+  Neural net                 C <= S e^-qT     test sample         0   0.00%    0.000e+00
+  Neural net                 dC/dS >= 0       grid sweep       1025  10.68%    2.551e-01   <--
+  Neural net                 dC/dsigma >= 0   grid sweep      11633  19.39%    5.681e-01   <--
+  Neural net                 d2C/dK2 >= 0     grid sweep       7195  75.42%    2.336e+00   <--
+  Neural net (softplus)      C >= 0           test sample         0   0.00%    0.000e+00
+  Neural net (softplus)      C >= intrinsic   test sample       414  13.80%    1.175e+00   <--
+  Neural net (softplus)      C <= S e^-qT     test sample         0   0.00%    0.000e+00
+  Neural net (softplus)      dC/dS >= 0       grid sweep          0   0.00%    0.000e+00
+  Neural net (softplus)      dC/dsigma >= 0   grid sweep       6641  11.07%    3.812e-01   <--
+  Neural net (softplus)      d2C/dK2 >= 0     grid sweep        925   9.70%    2.903e+00   <--
+  Black-Scholes              C >= 0           test sample         0   0.00%    0.000e+00
+  Black-Scholes              C >= intrinsic   test sample         0   0.00%    4.263e-14
+  Black-Scholes              C <= S e^-qT     test sample         0   0.00%    0.000e+00
+  Black-Scholes              dC/dS >= 0       grid sweep          0   0.00%    0.000e+00
+  Black-Scholes              dC/dsigma >= 0   grid sweep          0   0.00%    0.000e+00
+  Black-Scholes              d2C/dK2 >= 0     grid sweep          0   0.00%    0.000e+00
+
+  Where the pointwise violations sit, by moneyness:
+    m bucket           Neural net Neural net (so            OLS  OLS quadratic  Random forest          Ridge
+    (-0.61, -0.4]          49.62%          0.00%         97.89%         36.02%          0.00%         97.89%
+    (-0.4, -0.2]           34.90%          0.00%         35.97%         73.66%          0.00%         35.97%
+    (-0.2, -0.05]          14.92%          0.00%          0.00%         14.92%          0.00%          0.00%
+    (-0.05, 0.05]           2.43%          1.21%          0.00%          0.00%          0.40%          0.00%
+    (0.05, 0.2]            12.57%         17.02%          0.00%          0.26%         12.30%          0.00%
+    (0.2, 0.4]             27.39%         31.99%         19.73%         28.93%         28.35%         19.73%
+    (0.4, 0.61]            44.78%         35.94%         98.39%         66.06%         37.75%         98.39%
+
+==============================================================================
+TASK 6  -  THE FIVE MANDATORY PLOTS  (master plan 11.8)
+==============================================================================
+  wrote gate2_predicted_vs_true.png, gate2_residuals.png,
+        gate2_feature_importance.png, gate2_ann_loss.png
+
+==============================================================================
+STAGE GATE 2  -  THE QUESTION
+==============================================================================
+  'Does additional nonlinear model complexity produce a
+   meaningful improvement over regression?'
+
+  ON ACCURACY: yes, and by a wide margin.
+    OLS             10.4565
+    OLS quadratic    2.2614   (4.6x better than OLS)
+    Random forest    0.8195   (2.8x better than quadratic)
+    Neural net       0.2478   (9.1x better than quadratic)
+
+  But the target is NOISELESS Black-Scholes, so this was never
+  in doubt. It measures capacity, not usefulness. The gate needs
+  more than a ranking.
+
+  ON FINANCIAL CONSISTENCY: this is where the models separate.
+    OLS              C >= 0 (679, 22.63%), C >= intrinsic (1272, 42.40%), d2C/dK2 >= 0 (9540, 100.00%)
+    Ridge            C >= 0 (679, 22.63%), C >= intrinsic (1272, 42.40%), d2C/dK2 >= 0 (9540, 100.00%)
+    OLS quadratic    C >= 0 (586, 19.53%), C >= intrinsic (1067, 35.57%), dC/dS >= 0 (2015, 20.99%), dC/dsigma >= 0 (6693, 11.15%)
+    Random forest    C >= intrinsic (384, 12.80%), dC/dS >= 0 (83, 0.86%), dC/dsigma >= 0 (2855, 4.76%), d2C/dK2 >= 0 (3584, 37.57%)
+    Neural net       C >= 0 (476, 15.87%), C >= intrinsic (896, 29.87%), dC/dS >= 0 (1025, 10.68%), dC/dsigma >= 0 (11633, 19.39%), d2C/dK2 >= 0 (7195, 75.42%)
+    Neural net (softplus) C >= intrinsic (414, 13.80%), dC/dsigma >= 0 (6641, 11.07%), d2C/dK2 >= 0 (925, 9.70%)
+    clean: Black-Scholes
+
+  THE REMEDY, MEASURED. ML_experiment_plan.md 9.1 predicted the
+  negative prices before any model was fitted, and committed to
+  fixing them in the SPECIFICATION rather than by clipping.
+  A softplus output makes C >= 0 structurally impossible to
+  violate:
+    unconstrained net  RMSE   0.2478   negative prices  476
+    softplus net       RMSE   0.1952   negative prices    0
+    The constraint cost NOTHING in accuracy here.
+
+
+==============================================================================
+SUMMARY
+==============================================================================
+  seed                               20260825
+  n_test                             3000
+  ols_test_RMSE                      10.456533886967845
+  ols_test_MAE                       8.955899902904271
+  ols_test_R2                        0.8229808670835264
+  ridge_test_RMSE                    10.456533886898068
+  ridge_test_MAE                     8.955899902776363
+  ridge_test_R2                      0.8229808670858889
+  ols_quadratic_test_RMSE            2.261367826590001
+  ols_quadratic_test_MAE             1.82919561996715
+  ols_quadratic_test_R2              0.9917208237395412
+  random_forest_test_RMSE            0.8195182579033811
+  random_forest_test_MAE             0.5001415057593744
+  random_forest_test_R2              0.9989126684796887
+  neural_net_test_RMSE               0.2478401827123991
+  neural_net_test_MAE                0.18294384813732906
+  neural_net_test_R2                 0.9999005538093522
+  neural_net_(softplus)_test_RMSE    0.1951796181235019
+  neural_net_(softplus)_test_MAE     0.13022371011632877
+  neural_net_(softplus)_test_R2      0.9999383243637245
+  black_scholes_test_RMSE            1.4989595276180365e-14
+  black_scholes_test_MAE             1.0011867303583441e-14
+  black_scholes_test_R2              1.0
+  rf_oob_fraction                    1.0
+  net_best_epoch                     381
+  ridge_alpha                        1e-06
+  total_violations                   69454
+  viol_ols                           11491
+  viol_ridge                         11491
+  viol_ols_quadratic                 10361
+  viol_random_forest                 6906
+  viol_neural_net                    21225
+  viol_neural_net_(softplus)         7980
+  viol_black_scholes                 0
+
+  runtime 32.0 s
+
+Saved: results/w08_*.csv,  ml_plots/gate2_*.png
+
+Full console output written to: results/w08_console_output.txt

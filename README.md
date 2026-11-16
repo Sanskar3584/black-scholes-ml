@@ -32,7 +32,8 @@ Progression: **Mathematics -> Numerics -> Data -> Machine Learning -> Hybrid Pri
 | Post-midsem Week 4 | Binomial pricing and convergence | **Complete** |
 | Post-midsem Week 5 | Monte Carlo and three-method cross-validation | **Complete** |
 | Post-midsem Week 6 | ML experiment plan, synthetic dataset, regression baselines | **Complete** |
-| Post-midsem Week 7 | Tree ensemble and small neural network; Stage Gate 2 | In progress |
+| Post-midsem Week 7 | Tree ensemble, neural network, Stage Gate 2 | **Complete** |
+| Post-midsem Week 8 | Real market data and hybrid models | In progress |
 
 Work follows the plan in `docs/Sanskar_Plan_to_15Dec.xlsx`, which carries the status and
 evidence link for every task.
@@ -58,6 +59,9 @@ programmatic requests, so it has to be downloaded by hand. See `data_sources.md`
 ├── monte_carlo.py          risk-neutral terminal sampling, s.e. and 95% CI
 ├── ml_dataset.py           synthetic dataset, split, and the traceability audit
 ├── linear_models.py        OLS and Ridge in closed form, scaler, metrics
+├── tree_models.py          CART and random forest, histogram splits
+├── neural_net.py           p -> 32 -> 16 -> 1, forward and backward written out
+├── financial_checks.py     the 5.28 checks, reported as violation counts
 ├── nse_data.py             bhavcopy reader, implied forward, data-quality checks
 ├── test_nse_data.py        fixture tests for the above (32 checks)
 ├── ML_experiment_plan.md   the specification required by master plan 5.31
@@ -68,6 +72,7 @@ programmatic requests, so it has to be downloaded by hand. See `data_sources.md`
 ├── postmidsem_week4.py     Post-midsem Wk 4 - binomial pricing and convergence
 ├── postmidsem_week5.py     Post-midsem Wk 5 - Monte Carlo and the three-method grid
 ├── postmidsem_week6.py     Post-midsem Wk 6 - synthetic dataset and regression
+├── postmidsem_week7.py     Post-midsem Wk 7 - tree, network, Stage Gate 2
 ├── week3_evidence.py       regenerates the Stage Gate 1 evidence summary
 ├── data_sources.md         NSE / RBI sources, field mapping, access notes
 ├── data/                   cached NIFTY 50 price history
@@ -116,6 +121,7 @@ python postmidsem_week3.py  # ~2 min   Post-midsem Week 3
 python postmidsem_week4.py  # ~1 min   Post-midsem Week 4
 python postmidsem_week5.py  # ~3 s     Post-midsem Week 5
 python postmidsem_week6.py  # ~6 s     Post-midsem Week 6
+python postmidsem_week7.py  # ~25 s    Post-midsem Week 7 (Stage Gate 2)
 python week3_evidence.py    # ~20 s    Stage Gate 1 evidence summary
 ```
 
@@ -139,6 +145,9 @@ python binomial.py             # two CRR routes agree; convergence order; Americ
 python monte_carlo.py          # unbiasedness, s.e. scaling, interval coverage
 python ml_dataset.py           # traceability chain, split, sampling distribution
 python linear_models.py        # exact recovery, ridge limits, scaling invariance
+python tree_models.py          # split rule, importance, scikit-learn agreement
+python neural_net.py           # gradients vs finite differences, He init, determinism
+python financial_checks.py     # Black-Scholes passes; planted defects are caught
 python test_nse_data.py        # bhavcopy reader against a synthetic fixture
 ```
 
@@ -286,6 +295,40 @@ The dataset is calls only. A call and a put at the same parameters share a featu
 but not a price, so admitting puts makes the target two-valued and drops `R²` from 0.823
 to 0.060; puts follow exactly by parity instead. This was caught by measurement rather
 than inspection, and the mixed-set number is kept in the results as the evidence.
+
+### Post-midsem Week 7 - tree, network, and Stage Gate 2
+
+Same frozen split. Errors in currency units at `K = 100`, test split.
+
+| Model | Test RMSE | Total 5.28 violations | Negative prices |
+|---|---|---|---|
+| OLS / Ridge | 10.4565 | 11,491 | 679 |
+| OLS quadratic | 2.2614 | 10,361 | 586 |
+| Random forest | 0.8195 | **6,906** | **0** |
+| Neural net | **0.2478** | **21,225** | 476 |
+| Neural net (softplus) | **0.1952** | 7,980 | **0** |
+| Black-Scholes | 1.5e-14 | **0** | **0** |
+
+**The accuracy ranking and the consistency ranking are opposites.** The
+unconstrained network has the lowest error of any unconstrained model and the
+highest violation count. A single global statistic would rank it first and say
+nothing about the 476 negative prices, which is the case for reporting counts.
+
+Three results worth carrying forward:
+
+- **A model linear in log-moneyness is necessarily concave in strike.** With
+  `y = C/K` linear in `m`, `d2C/dK2 = -(dy/dm)/K < 0`, so OLS and Ridge
+  violate the butterfly no-arbitrage condition at *every* strike - 100% of
+  grid points. Predicted -1.1857e-02 from the fitted slope, swept -1.177e-02.
+- **The forest cannot predict a negative price**, because every prediction is
+  an average of non-negative training targets. The same property makes it fail
+  convexity at 37.6% of points: a step function is locally neither convex nor
+  concave.
+- **Constraining the output was not a trade-off.** A softplus head removed
+  every negative price and every monotonicity violation *and* cut RMSE by 21%.
+  It encodes a property the target genuinely has, so it removes a degree of
+  freedom the model was wasting. Clipping would have fixed the count and left
+  the model unchanged.
 
 ---
 
