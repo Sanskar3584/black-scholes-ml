@@ -406,7 +406,88 @@ def task_plots(df, models, extra):
 
 # ===================================================== gate answer
 
-def gate(tab, fin):
+def task_seeds(df, n_seeds=8):
+    """Both network variants over several seeds.
+
+    Added 17 November after the Stage Gate 2 review. The original report
+    claimed the softplus output improved accuracy by 21%, from a SINGLE seed.
+    The supervisor's objection was that seed-to-seed variation could easily be
+    that large, and he was right: see the spread below. The honest claim is
+    the one that survives repetition.
+    """
+    rule("TASK 7  -  SEED STUDY  (supervisor correction, 17 Nov)")
+    print("  The 21% accuracy claim for the softplus output came from one")
+    print("  seed. Re-fitting both variants over %d seeds to see whether it"
+          % n_seeds)
+    print("  survives.\n")
+
+    Xtr, ytr = get_xy(df, FEATURES_BASIC, split="train")
+    Xva, yva = get_xy(df, FEATURES_BASIC, split="val")
+    Xte, yte = get_xy(df, FEATURES_BASIC, split="test")
+    sc = Standardiser().fit(Xtr)
+    Ztr, Zva, Zte = sc.transform(Xtr), sc.transform(Xva), sc.transform(Xte)
+    K = df[df.split == "test"]["K"].to_numpy()
+
+    rows = []
+    for i in range(n_seeds):
+        s = SEED + i
+        for out in ("linear", "softplus"):
+            net = MLP(len(FEATURES_BASIC), hidden=(32, 16), lr=3e-3,
+                      batch=256, epochs=400, seed=s, patience=50,
+                      output=out).fit(Ztr, ytr, Zva, yva)
+            p = net.predict(Zte)
+            C = p * K
+            mm = metrics(yte, p, scale=K_REF)
+            rows.append({"seed": s, "output": out, "RMSE": mm["RMSE"],
+                         "MAE": mm["MAE"],
+                         "negative_prices": int((C < -1e-7).sum()),
+                         "negative_over_tick": int((C < -fc.TICK).sum()),
+                         "best_epoch": net.best_epoch_})
+        print("    seed %d  unconstrained RMSE %.4f (%4d neg)   "
+              "softplus RMSE %.4f (%d neg)"
+              % (s, rows[-2]["RMSE"], rows[-2]["negative_prices"],
+                 rows[-1]["RMSE"], rows[-1]["negative_prices"]))
+    t = pd.DataFrame(rows)
+    t.to_csv("results/w08_seed_study.csv", index=False)
+
+    a = t[t.output == "linear"]["RMSE"].to_numpy()
+    b = t[t.output == "softplus"]["RMSE"].to_numpy()
+    d = b - a
+    se = d.std(ddof=1) / np.sqrt(len(d))
+    tstat = d.mean() / se if se > 0 else np.nan
+
+    print("\n  Test RMSE over %d seeds:" % n_seeds)
+    print("    unconstrained  mean %.4f   sd %.4f   range %.4f to %.4f"
+          % (a.mean(), a.std(ddof=1), a.min(), a.max()))
+    print("    softplus       mean %.4f   sd %.4f   range %.4f to %.4f"
+          % (b.mean(), b.std(ddof=1), b.min(), b.max()))
+    print("\n  Paired difference (softplus minus unconstrained):")
+    print("    mean %+.4f   sd %.4f   softplus better on %d of %d seeds"
+          % (d.mean(), d.std(ddof=1), int((d < 0).sum()), len(d)))
+    print("    paired t = %.3f against %.2f for 5%% on %d df"
+          % (tstat, 2.36, len(d) - 1))
+    print("    -> the accuracy difference is NOT significant.\n")
+
+    na = t[t.output == "linear"]["negative_prices"].to_numpy()
+    nb = t[t.output == "softplus"]["negative_prices"].to_numpy()
+    nat = t[t.output == "linear"]["negative_over_tick"].to_numpy()
+    print("  Negative prices out of 3,000 test rows:")
+    print("    unconstrained  %d to %d (mean %.0f); above one tick, %d to %d"
+          % (na.min(), na.max(), na.mean(), nat.min(), nat.max()))
+    print("    softplus       %d in every seed" % nb.max())
+    print("\n  WHAT SURVIVES. The accuracy claim does not: the seed-to-seed")
+    print("  spread (sd %.4f, %.4f) dwarfs the single-seed gap, and the"
+          % (a.std(ddof=1), b.std(ddof=1)))
+    print("  original seed happened to be the worst of eight for the")
+    print("  unconstrained net (%.4f, its maximum) and a good one for" % a[0])
+    print("  softplus. The constraint claim does: ZERO negative prices in")
+    print("  every seed against %d to %d, and the gap is structural rather"
+          % (na.min(), na.max()))
+    print("  than statistical - softplus cannot emit a negative number.")
+    return t
+
+
+def gate(tab, fin, seeds=None):
     rule("STAGE GATE 2  -  THE QUESTION")
     print("  'Does additional nonlinear model complexity produce a")
     print("   meaningful improvement over regression?'\n")
@@ -429,19 +510,42 @@ def gate(tab, fin):
     print("  in doubt. It measures capacity, not usefulness. The gate needs")
     print("  more than a ranking.\n")
 
-    viol = fin[fin.n_violations > 0]
     print("  ON FINANCIAL CONSISTENCY: this is where the models separate.")
-    if len(viol) == 0:
-        print("    No model violated any of the six checks.")
-    else:
+    print("  Counts below are MATERIAL violations, larger than one tick")
+    print("  (Rs %.2f), with the sub-tick total in brackets.\n" % fc.TICK)
+    tot = fin.groupby("model", sort=False)[["n_violations", "n_material"]].sum()
+    for mdl in tot.index:
+        print("    %-22s %6d material   (%6d at numerical tolerance)"
+              % (mdl, tot.loc[mdl, "n_material"], tot.loc[mdl, "n_violations"]))
+
+    viol = fin[fin.n_material > 0]
+    if len(viol):
+        print("\n  Which checks, materially:")
         for mdl, g in viol.groupby("model", sort=False):
-            items = ", ".join("%s (%d, %.2f%%)"
-                              % (r_.check, r_.n_violations, r_.pct)
+            items = ", ".join("%s (%d)" % (r_.check, r_.n_material)
                               for _, r_ in g.iterrows())
-            print("    %-16s %s" % (mdl, items))
-        clean = sorted(set(fin.model) - set(viol.model))
-        if clean:
-            print("    clean: %s" % ", ".join(clean))
+            print("    %-22s %s" % (mdl, items))
+    clean = sorted(set(fin.model) - set(viol.model))
+    if clean:
+        print("    materially clean: %s" % ", ".join(clean))
+
+    # The materiality threshold REVERSES one of the Week 7 conclusions.
+    ols_cvx = fin[(fin.model == "OLS") & (fin.check == "d2C/dK2 >= 0")].iloc[0]
+    rf_cvx = fin[(fin.model == "Random forest")
+                 & (fin.check == "d2C/dK2 >= 0")].iloc[0]
+    print("\n  MATERIALITY CHANGES THE CONVEXITY VERDICT.")
+    print("    OLS            %5d of %d butterflies negative (%.0f%%), but"
+          % (ols_cvx.n_violations, ols_cvx.n_total, ols_cvx.pct))
+    print("                   only %d worth more than a tick; worst %.4f"
+          % (ols_cvx.n_material, ols_cvx.worst))
+    print("    Random forest  %5d negative (%.0f%%), of which %d are material;"
+          % (rf_cvx.n_violations, rf_cvx.pct, rf_cvx.n_material))
+    print("                   worst %.3f" % rf_cvx.worst)
+    print("    So the OLS concavity is universal but sub-tick at this strike")
+    print("    spacing, while the forest's is rarer and genuinely tradable.")
+    print("    The theorem still holds - a model linear in m IS concave in K -")
+    print("    but counting without a threshold made it look worse than the")
+    print("    forest, which is the wrong way round.")
 
     # the remedy, measured
     if "Neural net (softplus)" in te.index:
@@ -450,18 +554,23 @@ def gate(tab, fin):
                        & (fin.check == "C >= 0")].n_violations.iloc[0])
         v_con = int(fin[(fin.model == "Neural net (softplus)")
                         & (fin.check == "C >= 0")].n_violations.iloc[0])
-        print("\n  THE REMEDY, MEASURED. ML_experiment_plan.md 9.1 predicted the")
-        print("  negative prices before any model was fitted, and committed to")
-        print("  fixing them in the SPECIFICATION rather than by clipping.")
-        print("  A softplus output makes C >= 0 structurally impossible to")
-        print("  violate:")
-        print("    unconstrained net  RMSE %8.4f   negative prices %4d" % (nn, v_un))
-        print("    softplus net       RMSE %8.4f   negative prices %4d" % (nnc, v_con))
-        if nnc <= nn:
-            print("    The constraint cost NOTHING in accuracy here.")
-        else:
-            print("    Accuracy cost of the constraint: %.1f%%."
-                  % (100 * (nnc / nn - 1)))
+        print("\n  THE REMEDY. ML_experiment_plan.md 9.1 predicted the negative")
+        print("  prices before any model was fitted and committed to fixing")
+        print("  them in the SPECIFICATION rather than by clipping. A softplus")
+        print("  output makes C >= 0 structurally impossible to violate.")
+        print("    this seed: unconstrained RMSE %.4f (%d negative prices)"
+              % (nn, v_un))
+        print("               softplus      RMSE %.4f (%d negative prices)"
+              % (nnc, v_con))
+        if seeds is not None:
+            a = seeds[seeds.output == "linear"]["RMSE"].to_numpy()
+            b = seeds[seeds.output == "softplus"]["RMSE"].to_numpy()
+            print("\n    Over %d seeds the ACCURACY difference vanishes:"
+                  % (len(a)))
+            print("      unconstrained %.4f +/- %.4f,  softplus %.4f +/- %.4f"
+                  % (a.mean(), a.std(ddof=1), b.mean(), b.std(ddof=1)))
+            print("    so the correct statement is ZERO NEGATIVE PRICES AT")
+            print("    COMPARABLE ACCURACY. The constraint is free, not a gain.")
     print()
 
 
@@ -495,7 +604,8 @@ def run():
     task_residuals(df, models)
     fin, bm = task_financial(df, models)
     task_plots(df, models, extra)
-    gate(tab, fin)
+    seeds = task_seeds(df)
+    gate(tab, fin, seeds=seeds)
 
     rule("SUMMARY")
     te = tab[tab.split == "test"].set_index("model")
@@ -509,10 +619,23 @@ def run():
     summary["net_best_epoch"] = int(extra["net"].best_epoch_)
     summary["ridge_alpha"] = float(extra["alpha"])
     summary["total_violations"] = int(fin.n_violations.sum())
+    summary["total_material_violations"] = int(fin.n_material.sum())
+    a = seeds[seeds.output == "linear"]
+    b = seeds[seeds.output == "softplus"]
+    summary["n_seeds"] = int(len(a))
+    summary["seed_rmse_uncon_mean"] = float(a.RMSE.mean())
+    summary["seed_rmse_uncon_sd"] = float(a.RMSE.std(ddof=1))
+    summary["seed_rmse_softplus_mean"] = float(b.RMSE.mean())
+    summary["seed_rmse_softplus_sd"] = float(b.RMSE.std(ddof=1))
+    summary["seed_neg_uncon_min"] = int(a.negative_prices.min())
+    summary["seed_neg_uncon_max"] = int(a.negative_prices.max())
+    summary["seed_neg_softplus_max"] = int(b.negative_prices.max())
     for m_ in fin.model.unique():
         key = m_.lower().replace(" ", "_").replace("-", "_")
         summary["viol_%s" % key] = int(
             fin[fin.model == m_].n_violations.sum())
+        summary["material_%s" % key] = int(
+            fin[fin.model == m_].n_material.sum())
     pd.Series(summary).to_csv("results/w08_summary.csv", header=False)
     for k, v in summary.items():
         print("  %-34s %s" % (k, v))

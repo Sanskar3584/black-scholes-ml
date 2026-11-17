@@ -163,9 +163,16 @@ months at the top of `data/raw/README.txt` so the sample is reproducible.
 
 *URLs confirmed 16 November 2026.*
 
-NSE publishes a daily F&O bhavcopy. For twelve monthly expiries, what is needed is the
-file for each **trading day** in the window, or - if that proves too many files - the file
-for the last trading day of each week plus every expiry day.
+NSE publishes a daily F&O bhavcopy.
+
+**Sampling: weekly, not daily.** Supervisor instruction, 17 November. Take the **last
+trading day of each week plus every expiry day** - about **60 files** over a twelve-month
+window, against roughly 250 for every trading day. The expiry days are included because
+that is where the near-dated contracts are most liquid and where parity is tightest; the
+weekly cadence is enough to track the surface without multiplying near-duplicate rows that
+would also break the independence of any chronological split.
+
+**Deadline: Thursday 19 November.** Week 8 depends on it.
 
 **Route A - the reports page (do this first).**
 
@@ -293,13 +300,15 @@ and should be recorded rather than filtered away silently.
 
 | Action | Owner | Due | Status |
 |---|---|---|---|
-| Download the first month of NIFTY option bhavcopy | Sanskar | **Sat 14 Nov** | outstanding |
-| Run `python nse_data.py <file>` on it | Sanskar | Sat 14 Nov | automated, ready |
-| Fix `COLUMN_ALIASES` if any column fails to resolve | Sanskar | Sat 14 Nov | only if needed |
-| Download RBI 91-day T-bill series | Sanskar | Stage Gate 2 | outstanding |
-| Download NSE NIFTY 50 dividend-yield series | Sanskar | Stage Gate 2 | outstanding |
-| Download the remaining eleven expiries | Sanskar | **Mon 17 Nov** | after the checks pass |
-| Agree the dataset specification in section 4 | supervisor | Stage Gate 2 | pending |
+| Download one file and run the checks | Sanskar | 14 Nov | **done** 16 Nov; all column names correct |
+| Download the window, weekly sampling, ~60 files | Sanskar | **Thu 19 Nov** | outstanding, blocks Week 8 |
+| Download RBI 91-day T-bill series | Sanskar | Thu 19 Nov | outstanding |
+| Filters and no-arbitrage screening to `clean_options.csv` | Sanskar | after the download | - |
+| Agree the dataset specification in section 4 | supervisor | - | pending |
+
+The NSE dividend-yield series is **no longer needed**: `q` is taken per expiry from the
+implied forward (section 7 below), which is both more accurate and avoids trusting a
+borrowed series.
 
 Note the 21-day warm-up: `sigma_hist` (`ML_experiment_plan.md` section 4.1) needs a month of
 returns before the first usable date, so the modelling window starts one month after the raw
@@ -307,3 +316,33 @@ data window. Choose the window in section 5.1 with that in mind rather than trim
 
 No cleaning, filtering or analysis has been done, in line with the Week 5 instruction that
 this task is sources and access notes only.
+
+
+---
+
+## 7. Dividend yield: taken per expiry, not as a constant
+
+*Added 17 November, on the supervisor's instruction and the evidence of the first file.*
+
+The synthetic stage used a constant $q = 1.5\%$, the trailing NIFTY 50 index yield. The
+13 November bhavcopy shows that this is wrong at both ends of the curve. Inverting
+$F = Se^{(r-q)T}$ for each liquid expiry:
+
+| Expiry | 17 Nov | 23 Nov | 1 Dec | 8 Dec | 15 Dec | 29 Dec | 25 Jan |
+|---|---|---|---|---|---|---|---|
+| $T$ | 0.011 | 0.027 | 0.049 | 0.068 | 0.088 | 0.126 | 0.200 |
+| implied $q$ | **+4.10%** | +3.17% | +2.59% | +1.97% | +0.75% | +1.02% | **-0.12%** |
+
+The decline is monotone and it is the signature of **discrete, seasonal dividends**. Indian
+companies cluster their ex-dates; a near-dated forward prices in an imminent cluster, a
+longer-dated one averages it away. A continuous yield is a convenient fiction, and a single
+constant is off by more than two percentage points at both ends.
+
+`nse_data.attach_market_q()` implements this. Expiries with fewer than
+`MIN_PAIRED_STRIKES = 50` paired strikes fall back to the constant and are flagged in a
+`q_source` column - the far-dated NIFTY expiries carry 13 to 15 pairs with single-digit
+volume, so their forwards are marks rather than prices. On the 13 November file, 7 of 18
+expiries qualify.
+
+Taking $q$ from the forward also means no borrowed dividend series has to be trusted, which
+is the convention already fixed in `ML_experiment_plan.md` section 6.2.

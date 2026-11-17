@@ -53,8 +53,16 @@ import pandas as pd
 
 __all__ = [
     "COLUMN_ALIASES", "read_bhavcopy", "filter_nifty_options",
-    "implied_forward", "run_quality_checks",
+    "implied_forward", "run_quality_checks", "attach_market_q",
+    "MIN_PAIRED_STRIKES",
 ]
+
+# An expiry needs at least this many paired strikes before its implied
+# forward is treated as a price rather than a mark. The 13 November file has
+# 93 to 171 pairs on the liquid expiries and 13 to 15 on the far-dated ones,
+# with single-digit volume; the gap is wide enough that the threshold is not
+# a fine judgement.
+MIN_PAIRED_STRIKES = 50
 
 # ---------------------------------------------------------------------------
 # column resolution
@@ -236,6 +244,16 @@ def implied_forward(df, r=0.065, verbose=True):
             S = float(g["underlying"].dropna().iloc[0])
             rec["S"] = S
             rec["F_over_S"] = F / S if S else np.nan
+            # The dividend yield the market is actually pricing, per expiry.
+            # Inverting F = S e^{(r-q)T}. Supervisor instruction, 17 Nov:
+            # take q from the implied forward rather than from the 1.5%
+            # constant, because Indian dividends are discrete and seasonal -
+            # the 13 Nov file shows q running from 3.17% at ten days to
+            # -0.12% at two and a half months.
+            if np.isfinite(T) and T > 0 and S > 0 and F > 0:
+                rec["q_implied"] = r - np.log(F / S) / T
+            else:
+                rec["q_implied"] = np.nan
         rows.append(rec)
 
     out = pd.DataFrame(rows).sort_values("expiry").reset_index(drop=True)
@@ -429,7 +447,7 @@ def run_quality_checks(df, fwd=None, r=0.065, verbose=True):
     if fwd is not None and len(fwd) and "F_over_S" in fwd:
         ok_rows = fwd[np.isfinite(fwd.get("F_over_S", np.nan))
                       & (fwd["T"] >= 7.0 / 365.0)
-                      & (fwd["n_paired_strikes"] >= 50)]
+                      & (fwd["n_paired_strikes"] >= MIN_PAIRED_STRIKES)]
         if len(ok_rows) == 0:        # nothing liquid: fall back, and say so
             ok_rows = fwd[np.isfinite(fwd.get("F_over_S", np.nan))
                           & (fwd["T"] >= 7.0 / 365.0)]
@@ -472,6 +490,49 @@ def run_quality_checks(df, fwd=None, r=0.065, verbose=True):
 
 # ---------------------------------------------------------------------------
 
+def attach_market_q(df, fwd, q_fallback=0.015, verbose=True):
+    """Attach the per-expiry implied dividend yield and forward to each row.
+
+    This is what the pricing stack should use on market data, in place of the
+    1.5% constant carried through the synthetic stage. Two reasons, both
+    visible in the first downloaded file:
+
+      - Indian dividends are discrete and seasonal, not a continuous yield,
+        so the yield the forward implies varies systematically with maturity;
+      - taking q from the forward means no borrowed dividend series has to be
+        trusted, which is the convention already fixed in
+        ML_experiment_plan.md section 6.2.
+
+    Expiries whose forward is a mark rather than a price - fewer than
+    MIN_PAIRED_STRIKES paired strikes - fall back to q_fallback, and are
+    flagged in the `q_source` column so nothing is silently substituted.
+    """
+    f = fwd.copy()
+    if "q_implied" not in f:
+        f["q_implied"] = np.nan
+    liquid = (f["n_paired_strikes"] >= MIN_PAIRED_STRIKES) & \
+             np.isfinite(f["q_implied"])
+    f["q_market"] = np.where(liquid, f["q_implied"], q_fallback)
+    f["q_source"] = np.where(liquid, "implied forward", "fallback constant")
+
+    out = df.merge(f[["expiry", "T", "F_implied", "q_market", "q_source",
+                      "n_paired_strikes"]], on="expiry", how="left")
+    if verbose:
+        use = f[liquid]
+        print("  per-expiry q from the implied forward:")
+        for _, x in f.iterrows():
+            mark = "" if x["q_source"] == "implied forward" else "   (fallback)"
+            print("    %s  T=%.3f  pairs=%3d   q = %+.2f%%%s"
+                  % (pd.Timestamp(x["expiry"]).date(), x["T"],
+                     x["n_paired_strikes"], 100 * x["q_market"], mark))
+        if len(use):
+            print("  %d of %d expiries use the market forward; q spans "
+                  "%.2f%% to %.2f%%"
+                  % (len(use), len(f), 100 * use["q_implied"].min(),
+                     100 * use["q_implied"].max()))
+    return out
+
+
 def inspect(path, r=0.065):
     """Full pass over one downloaded file."""
     print("=" * 78)
@@ -487,6 +548,8 @@ def inspect(path, r=0.065):
             "need the real tag names.")
     fwd = implied_forward(opt, r=r)
     run_quality_checks(opt, fwd=fwd, r=r)
+    print()
+    opt = attach_market_q(opt, fwd)
     print("\n" + "=" * 78)
     print("Next: if all six look reasonable, download the other eleven months")
     print("(data_sources.md section 5.1 for the window). If any flagged, bring")

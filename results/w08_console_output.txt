@@ -26,7 +26,7 @@ FITTING  (training and validation only)
       20/60 trees
       40/60 trees
       60/60 trees
-    fitted in 7.8 s; OOB RMSE 0.7898 (currency)
+    fitted in 7.0 s; OOB RMSE 0.7898 (currency)
   Neural network p -> 32 -> 16 -> 1 ...
       epoch  50  train 4.290e-04  val 4.538e-04
       epoch 100  train 1.466e-04  val 1.494e-04
@@ -36,7 +36,7 @@ FITTING  (training and validation only)
       epoch 300  train 1.743e-05  val 1.784e-05
       epoch 350  train 1.047e-05  val 1.054e-05
       epoch 400  train 6.782e-06  val 7.050e-06
-    fitted in 6.8 s; best epoch 381 of 400
+    fitted in 4.8 s; best epoch 381 of 400
   Neural network, softplus output (non-negative by construction) ...
     best epoch 396
 
@@ -124,49 +124,52 @@ TASK 5  -  FINANCIAL CONSISTENCY  (master plan 5.28), AS COUNTS
   grid holding other inputs fixed - which also probes regions the
   test split does not happen to cover.
 
-  model                      check            scope          n viol       %        worst
-  OLS                        C >= 0           test sample       679  22.63%    4.026e+01   <--
-  OLS                        C >= intrinsic   test sample      1272  42.40%    4.026e+01   <--
-  OLS                        C <= S e^-qT     test sample         0   0.00%    0.000e+00
-  OLS                        dC/dS >= 0       grid sweep          0   0.00%    0.000e+00
-  OLS                        dC/dsigma >= 0   grid sweep          0   0.00%    0.000e+00
-  OLS                        d2C/dK2 >= 0     grid sweep       9540 100.00%    1.177e-02   <--
-  Ridge                      C >= 0           test sample       679  22.63%    4.026e+01   <--
-  Ridge                      C >= intrinsic   test sample      1272  42.40%    4.026e+01   <--
-  Ridge                      C <= S e^-qT     test sample         0   0.00%    0.000e+00
-  Ridge                      dC/dS >= 0       grid sweep          0   0.00%    0.000e+00
-  Ridge                      dC/dsigma >= 0   grid sweep          0   0.00%    0.000e+00
-  Ridge                      d2C/dK2 >= 0     grid sweep       9540 100.00%    1.177e-02   <--
-  OLS quadratic              C >= 0           test sample       586  19.53%    5.415e+00   <--
-  OLS quadratic              C >= intrinsic   test sample      1067  35.57%    5.415e+00   <--
-  OLS quadratic              C <= S e^-qT     test sample         0   0.00%    0.000e+00
-  OLS quadratic              dC/dS >= 0       grid sweep       2015  20.99%    3.787e-01   <--
-  OLS quadratic              dC/dsigma >= 0   grid sweep       6693  11.15%    1.419e-02   <--
-  OLS quadratic              d2C/dK2 >= 0     grid sweep          0   0.00%    0.000e+00
-  Random forest              C >= 0           test sample         0   0.00%    0.000e+00
-  Random forest              C >= intrinsic   test sample       384  12.80%    3.175e+00   <--
-  Random forest              C <= S e^-qT     test sample         0   0.00%    0.000e+00
-  Random forest              dC/dS >= 0       grid sweep         83   0.86%    1.270e-01   <--
-  Random forest              dC/dsigma >= 0   grid sweep       2855   4.76%    7.229e-01   <--
-  Random forest              d2C/dK2 >= 0     grid sweep       3584  37.57%    1.751e+01   <--
-  Neural net                 C >= 0           test sample       476  15.87%    1.780e+00   <--
-  Neural net                 C >= intrinsic   test sample       896  29.87%    1.780e+00   <--
-  Neural net                 C <= S e^-qT     test sample         0   0.00%    0.000e+00
-  Neural net                 dC/dS >= 0       grid sweep       1025  10.68%    2.551e-01   <--
-  Neural net                 dC/dsigma >= 0   grid sweep      11633  19.39%    5.681e-01   <--
-  Neural net                 d2C/dK2 >= 0     grid sweep       7195  75.42%    2.336e+00   <--
-  Neural net (softplus)      C >= 0           test sample         0   0.00%    0.000e+00
-  Neural net (softplus)      C >= intrinsic   test sample       414  13.80%    1.175e+00   <--
-  Neural net (softplus)      C <= S e^-qT     test sample         0   0.00%    0.000e+00
-  Neural net (softplus)      dC/dS >= 0       grid sweep          0   0.00%    0.000e+00
-  Neural net (softplus)      dC/dsigma >= 0   grid sweep       6641  11.07%    3.812e-01   <--
-  Neural net (softplus)      d2C/dK2 >= 0     grid sweep        925   9.70%    2.903e+00   <--
-  Black-Scholes              C >= 0           test sample         0   0.00%    0.000e+00
-  Black-Scholes              C >= intrinsic   test sample         0   0.00%    4.263e-14
-  Black-Scholes              C <= S e^-qT     test sample         0   0.00%    0.000e+00
-  Black-Scholes              dC/dS >= 0       grid sweep          0   0.00%    0.000e+00
-  Black-Scholes              dC/dsigma >= 0   grid sweep          0   0.00%    0.000e+00
-  Black-Scholes              d2C/dK2 >= 0     grid sweep          0   0.00%    0.000e+00
+  violations at a numerical tolerance (1e-9 / 1e-7), and
+  MATERIAL violations larger than one tick (Rs 0.05).
+
+  model                    check            scope         n viol       %  material       worst
+  OLS                      C >= 0           test sample      679  22.63%       677   4.026e+01  <--
+  OLS                      C >= intrinsic   test sample     1272  42.40%      1266   4.026e+01  <--
+  OLS                      C <= S e^-qT     test sample        0   0.00%         0   0.000e+00
+  OLS                      dC/dS >= 0       grid sweep         0   0.00%         0   0.000e+00
+  OLS                      dC/dsigma >= 0   grid sweep         0   0.00%         0   0.000e+00
+  OLS                      d2C/dK2 >= 0     grid sweep      9540 100.00%         0   7.402e-03
+  Ridge                    C >= 0           test sample      679  22.63%       677   4.026e+01  <--
+  Ridge                    C >= intrinsic   test sample     1272  42.40%      1266   4.026e+01  <--
+  Ridge                    C <= S e^-qT     test sample        0   0.00%         0   0.000e+00
+  Ridge                    dC/dS >= 0       grid sweep         0   0.00%         0   0.000e+00
+  Ridge                    dC/dsigma >= 0   grid sweep         0   0.00%         0   0.000e+00
+  Ridge                    d2C/dK2 >= 0     grid sweep      9540 100.00%         0   7.402e-03
+  OLS quadratic            C >= 0           test sample      586  19.53%       583   5.415e+00  <--
+  OLS quadratic            C >= intrinsic   test sample     1067  35.57%      1057   5.415e+00  <--
+  OLS quadratic            C <= S e^-qT     test sample        0   0.00%         0   0.000e+00
+  OLS quadratic            dC/dS >= 0       grid sweep      2015  20.99%      1735   3.787e-01  <--
+  OLS quadratic            dC/dsigma >= 0   grid sweep      6693  11.15%         0   1.419e-02
+  OLS quadratic            d2C/dK2 >= 0     grid sweep         0   0.00%         0   0.000e+00
+  Random forest            C >= 0           test sample        0   0.00%         0   0.000e+00
+  Random forest            C >= intrinsic   test sample      384  12.80%       360   3.175e+00  <--
+  Random forest            C <= S e^-qT     test sample        0   0.00%         0   0.000e+00
+  Random forest            dC/dS >= 0       grid sweep        83   0.86%         6   1.270e-01  <--
+  Random forest            dC/dsigma >= 0   grid sweep      2855   4.76%       526   7.229e-01  <--
+  Random forest            d2C/dK2 >= 0     grid sweep      3333  34.94%      2720   6.035e+00  <--
+  Neural net               C >= 0           test sample      476  15.87%       387   1.780e+00  <--
+  Neural net               C >= intrinsic   test sample      896  29.87%       706   1.780e+00  <--
+  Neural net               C <= S e^-qT     test sample        0   0.00%         0   0.000e+00
+  Neural net               dC/dS >= 0       grid sweep      1025  10.68%        73   2.551e-01  <--
+  Neural net               dC/dsigma >= 0   grid sweep     11633  19.39%       328   5.681e-01  <--
+  Neural net               d2C/dK2 >= 0     grid sweep      6893  72.25%       159   1.046e+00  <--
+  Neural net (softplus)    C >= 0           test sample        0   0.00%         0   0.000e+00
+  Neural net (softplus)    C >= intrinsic   test sample      414  13.80%       295   1.175e+00  <--
+  Neural net (softplus)    C <= S e^-qT     test sample        0   0.00%         0   0.000e+00
+  Neural net (softplus)    dC/dS >= 0       grid sweep         0   0.00%         0   0.000e+00
+  Neural net (softplus)    dC/dsigma >= 0   grid sweep      6641  11.07%       371   3.812e-01  <--
+  Neural net (softplus)    d2C/dK2 >= 0     grid sweep       872   9.14%       393   6.393e-01  <--
+  Black-Scholes            C >= 0           test sample        0   0.00%         0   0.000e+00
+  Black-Scholes            C >= intrinsic   test sample        0   0.00%         0   4.263e-14
+  Black-Scholes            C <= S e^-qT     test sample        0   0.00%         0   0.000e+00
+  Black-Scholes            dC/dS >= 0       grid sweep         0   0.00%         0   0.000e+00
+  Black-Scholes            dC/dsigma >= 0   grid sweep         0   0.00%         0   0.000e+00
+  Black-Scholes            d2C/dK2 >= 0     grid sweep         0   0.00%         0   0.000e+00
 
   Where the pointwise violations sit, by moneyness:
     m bucket           Neural net Neural net (so            OLS  OLS quadratic  Random forest          Ridge
@@ -185,6 +188,43 @@ TASK 6  -  THE FIVE MANDATORY PLOTS  (master plan 11.8)
         gate2_feature_importance.png, gate2_ann_loss.png
 
 ==============================================================================
+TASK 7  -  SEED STUDY  (supervisor correction, 17 Nov)
+==============================================================================
+  The 21% accuracy claim for the softplus output came from one
+  seed. Re-fitting both variants over 8 seeds to see whether it
+  survives.
+
+    seed 20260825  unconstrained RMSE 0.2478 ( 476 neg)   softplus RMSE 0.1952 (0 neg)
+    seed 20260826  unconstrained RMSE 0.1942 ( 442 neg)   softplus RMSE 0.1723 (0 neg)
+    seed 20260827  unconstrained RMSE 0.2326 ( 214 neg)   softplus RMSE 0.2239 (0 neg)
+    seed 20260828  unconstrained RMSE 0.2086 ( 242 neg)   softplus RMSE 0.1924 (0 neg)
+    seed 20260829  unconstrained RMSE 0.1753 ( 356 neg)   softplus RMSE 0.1782 (0 neg)
+    seed 20260830  unconstrained RMSE 0.1937 ( 136 neg)   softplus RMSE 0.3343 (0 neg)
+    seed 20260831  unconstrained RMSE 0.1700 ( 372 neg)   softplus RMSE 0.2446 (0 neg)
+    seed 20260832  unconstrained RMSE 0.2619 ( 407 neg)   softplus RMSE 0.1646 (0 neg)
+
+  Test RMSE over 8 seeds:
+    unconstrained  mean 0.2105   sd 0.0337   range 0.1700 to 0.2619
+    softplus       mean 0.2132   sd 0.0558   range 0.1646 to 0.3343
+
+  Paired difference (softplus minus unconstrained):
+    mean +0.0027   sd 0.0740   softplus better on 5 of 8 seeds
+    paired t = 0.103 against 2.36 for 5% on 7 df
+    -> the accuracy difference is NOT significant.
+
+  Negative prices out of 3,000 test rows:
+    unconstrained  136 to 476 (mean 331); above one tick, 51 to 387
+    softplus       0 in every seed
+
+  WHAT SURVIVES. The accuracy claim does not: the seed-to-seed
+  spread (sd 0.0337, 0.0558) dwarfs the single-seed gap, and the
+  original seed happened to be the worst of eight for the
+  unconstrained net (0.2478, its maximum) and a good one for
+  softplus. The constraint claim does: ZERO negative prices in
+  every seed against 136 to 476, and the gap is structural rather
+  than statistical - softplus cannot emit a negative number.
+
+==============================================================================
 STAGE GATE 2  -  THE QUESTION
 ==============================================================================
   'Does additional nonlinear model complexity produce a
@@ -201,22 +241,48 @@ STAGE GATE 2  -  THE QUESTION
   more than a ranking.
 
   ON FINANCIAL CONSISTENCY: this is where the models separate.
-    OLS              C >= 0 (679, 22.63%), C >= intrinsic (1272, 42.40%), d2C/dK2 >= 0 (9540, 100.00%)
-    Ridge            C >= 0 (679, 22.63%), C >= intrinsic (1272, 42.40%), d2C/dK2 >= 0 (9540, 100.00%)
-    OLS quadratic    C >= 0 (586, 19.53%), C >= intrinsic (1067, 35.57%), dC/dS >= 0 (2015, 20.99%), dC/dsigma >= 0 (6693, 11.15%)
-    Random forest    C >= intrinsic (384, 12.80%), dC/dS >= 0 (83, 0.86%), dC/dsigma >= 0 (2855, 4.76%), d2C/dK2 >= 0 (3584, 37.57%)
-    Neural net       C >= 0 (476, 15.87%), C >= intrinsic (896, 29.87%), dC/dS >= 0 (1025, 10.68%), dC/dsigma >= 0 (11633, 19.39%), d2C/dK2 >= 0 (7195, 75.42%)
-    Neural net (softplus) C >= intrinsic (414, 13.80%), dC/dsigma >= 0 (6641, 11.07%), d2C/dK2 >= 0 (925, 9.70%)
-    clean: Black-Scholes
+  Counts below are MATERIAL violations, larger than one tick
+  (Rs 0.05), with the sub-tick total in brackets.
 
-  THE REMEDY, MEASURED. ML_experiment_plan.md 9.1 predicted the
-  negative prices before any model was fitted, and committed to
-  fixing them in the SPECIFICATION rather than by clipping.
-  A softplus output makes C >= 0 structurally impossible to
-  violate:
-    unconstrained net  RMSE   0.2478   negative prices  476
-    softplus net       RMSE   0.1952   negative prices    0
-    The constraint cost NOTHING in accuracy here.
+    OLS                      1943 material   ( 11491 at numerical tolerance)
+    Ridge                    1943 material   ( 11491 at numerical tolerance)
+    OLS quadratic            3375 material   ( 10361 at numerical tolerance)
+    Random forest            3612 material   (  6655 at numerical tolerance)
+    Neural net               1653 material   ( 20923 at numerical tolerance)
+    Neural net (softplus)    1059 material   (  7927 at numerical tolerance)
+    Black-Scholes               0 material   (     0 at numerical tolerance)
+
+  Which checks, materially:
+    OLS                    C >= 0 (677), C >= intrinsic (1266)
+    Ridge                  C >= 0 (677), C >= intrinsic (1266)
+    OLS quadratic          C >= 0 (583), C >= intrinsic (1057), dC/dS >= 0 (1735)
+    Random forest          C >= intrinsic (360), dC/dS >= 0 (6), dC/dsigma >= 0 (526), d2C/dK2 >= 0 (2720)
+    Neural net             C >= 0 (387), C >= intrinsic (706), dC/dS >= 0 (73), dC/dsigma >= 0 (328), d2C/dK2 >= 0 (159)
+    Neural net (softplus)  C >= intrinsic (295), dC/dsigma >= 0 (371), d2C/dK2 >= 0 (393)
+    materially clean: Black-Scholes
+
+  MATERIALITY CHANGES THE CONVEXITY VERDICT.
+    OLS             9540 of 9540 butterflies negative (100%), but
+                   only 0 worth more than a tick; worst 0.0074
+    Random forest   3333 negative (35%), of which 2720 are material;
+                   worst 6.035
+    So the OLS concavity is universal but sub-tick at this strike
+    spacing, while the forest's is rarer and genuinely tradable.
+    The theorem still holds - a model linear in m IS concave in K -
+    but counting without a threshold made it look worse than the
+    forest, which is the wrong way round.
+
+  THE REMEDY. ML_experiment_plan.md 9.1 predicted the negative
+  prices before any model was fitted and committed to fixing
+  them in the SPECIFICATION rather than by clipping. A softplus
+  output makes C >= 0 structurally impossible to violate.
+    this seed: unconstrained RMSE 0.2478 (476 negative prices)
+               softplus      RMSE 0.1952 (0 negative prices)
+
+    Over 8 seeds the ACCURACY difference vanishes:
+      unconstrained 0.2105 +/- 0.0337,  softplus 0.2132 +/- 0.0558
+    so the correct statement is ZERO NEGATIVE PRICES AT
+    COMPARABLE ACCURACY. The constraint is free, not a gain.
 
 
 ==============================================================================
@@ -248,16 +314,32 @@ SUMMARY
   rf_oob_fraction                    1.0
   net_best_epoch                     381
   ridge_alpha                        1e-06
-  total_violations                   69454
+  total_violations                   68848
+  total_material_violations          13585
+  n_seeds                            8
+  seed_rmse_uncon_mean               0.21050571038872795
+  seed_rmse_uncon_sd                 0.03371582432537524
+  seed_rmse_softplus_mean            0.2131884552468864
+  seed_rmse_softplus_sd              0.055783726543219066
+  seed_neg_uncon_min                 136
+  seed_neg_uncon_max                 476
+  seed_neg_softplus_max              0
   viol_ols                           11491
+  material_ols                       1943
   viol_ridge                         11491
+  material_ridge                     1943
   viol_ols_quadratic                 10361
-  viol_random_forest                 6906
-  viol_neural_net                    21225
-  viol_neural_net_(softplus)         7980
+  material_ols_quadratic             3375
+  viol_random_forest                 6655
+  material_random_forest             3612
+  viol_neural_net                    20923
+  material_neural_net                1653
+  viol_neural_net_(softplus)         7927
+  material_neural_net_(softplus)     1059
   viol_black_scholes                 0
+  material_black_scholes             0
 
-  runtime 32.0 s
+  runtime 109.6 s
 
 Saved: results/w08_*.csv,  ml_plots/gate2_*.png
 

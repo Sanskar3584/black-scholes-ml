@@ -51,16 +51,29 @@ value, so the second difference of C in K must be non-negative.
 import numpy as np
 import pandas as pd
 
-__all__ = ["pointwise_checks", "sweep_checks", "check_table", "summarise"]
+__all__ = ["pointwise_checks", "sweep_checks", "check_table", "summarise",
+           "TICK"]
 
 _EPS = 1e-9
+
+# One tick on an NSE index option is Rs 0.05. Supervisor note, 17 November:
+# a count taken at a numerical tolerance of ~1e-7 includes violations far
+# below anything tradable, so every check is reported at BOTH thresholds.
+#
+# The distinction is not cosmetic. A price 1e-9 below zero is a rounding
+# artefact and nobody could act on it; a price Rs 0.40 below zero is a quote
+# a desk would have to refuse. On real data, where the bid-ask spread is
+# itself several ticks, only the material count will mean anything - so the
+# habit of reporting both starts here, where the answer is already known.
+TICK = 0.05
 
 
 # --------------------------------------------------------------------------
 # pointwise checks, on the test sample
 # --------------------------------------------------------------------------
 
-def pointwise_checks(pred_scaled, S, K, T, r, q, m=None, tol=_EPS):
+def pointwise_checks(pred_scaled, S, K, T, r, q, m=None, tol=_EPS,
+                     tick=TICK):
     """Checks 1 to 3 on actual sample points.
 
     pred_scaled is the model's prediction of y = C/K; it is converted back to
@@ -85,6 +98,10 @@ def pointwise_checks(pred_scaled, S, K, T, r, q, m=None, tol=_EPS):
         "viol_non_negative": np.maximum(0.0, -C),
         "viol_above_intrinsic": np.maximum(0.0, lower - C),
         "viol_below_upper": np.maximum(0.0, C - upper),
+        # material versions: violations larger than one tick
+        "tick_non_negative": C >= -tick,
+        "tick_above_intrinsic": C >= lower - tick,
+        "tick_below_upper": C <= upper + tick,
     }
 
 
@@ -96,7 +113,7 @@ def sweep_checks(predict_scaled, S=100.0, q=0.015, n_grid=201,
                  T_list=(0.02, 0.08, 0.25, 1.0, 2.0),
                  sigma_list=(0.10, 0.25, 0.45, 0.60),
                  r_list=(0.03, 0.055, 0.08),
-                 m_range=(-0.6, 0.6), tol=1e-7):
+                 m_range=(-0.6, 0.6), tol=1e-7, tick=TICK):
     """Checks 4 to 6 by sweeping one input at a time.
 
     predict_scaled(features) takes an (n, 4) array of [m, T, r, sigma] and
@@ -113,7 +130,7 @@ def sweep_checks(predict_scaled, S=100.0, q=0.015, n_grid=201,
     # moves K, so the quantity that must be non-decreasing is the price of a
     # FIXED strike as S rises. Hold K fixed and vary S instead.
     K_fix = 100.0
-    worst_mono_S, n_bad_S, n_tot_S = 0.0, 0, 0
+    worst_mono_S, n_bad_S, n_tot_S, n_tick_S = 0.0, 0, 0, 0
     for T in T_list:
         for sg in sigma_list:
             for r in r_list:
@@ -127,14 +144,15 @@ def sweep_checks(predict_scaled, S=100.0, q=0.015, n_grid=201,
                 n_tot_S += len(d)
                 bad = d < -tol
                 n_bad_S += int(bad.sum())
+                n_tick_S += int((d < -tick).sum())
                 if bad.any():
                     worst_mono_S = max(worst_mono_S, float(-d[bad].min()))
     out["monotone_in_S"] = {"n_bad": n_bad_S, "n_total": n_tot_S,
-                            "worst": worst_mono_S}
+                            "worst": worst_mono_S, "n_tick": n_tick_S}
 
     # ---- 5: monotone in sigma at fixed m, T, r --------------------------
     sg_grid = np.linspace(0.10, 0.60, n_grid)
-    worst_v, n_bad_v, n_tot_v = 0.0, 0, 0
+    worst_v, n_bad_v, n_tot_v, n_tick_v = 0.0, 0, 0, 0
     for T in T_list:
         for r in r_list:
             for m in np.linspace(m_range[0], m_range[1], 25):
@@ -145,39 +163,42 @@ def sweep_checks(predict_scaled, S=100.0, q=0.015, n_grid=201,
                 n_tot_v += len(d)
                 bad = d < -tol
                 n_bad_v += int(bad.sum())
+                n_tick_v += int((d < -tick).sum())
                 if bad.any():
                     worst_v = max(worst_v, float(-d[bad].min()))
     out["monotone_in_sigma"] = {"n_bad": n_bad_v, "n_total": n_tot_v,
-                                "worst": worst_v}
+                                "worst": worst_v, "n_tick": n_tick_v}
 
     # ---- 6: convex in K at fixed S, T, r, sigma -------------------------
-    # The butterfly argument: for K1 < K2 < K3 equally spaced,
-    #     C(K1) - 2 C(K2) + C(K3) >= 0,
-    # otherwise the butterfly spread has negative value. Stated on the price,
-    # so the scaled prediction is multiplied back by each strike.
-    worst_c, n_bad_c, n_tot_c = 0.0, 0, 0
+    # Reported as the BUTTERFLY VALUE rather than as the second derivative.
+    # For equally spaced K1 < K2 < K3 the spread (long K1, short two K2, long
+    # K3) costs C(K1) - 2C(K2) + C(K3) and can never pay out less than zero,
+    # so a negative value is a free lunch. That quantity is in rupees, which
+    # the second derivative - units of 1/rupee - is not, and only the rupee
+    # version can be compared against a tick.
+    #
+    # The strike grid is therefore UNIFORM here, unlike the m-uniform grid
+    # used for the other sweeps, because a butterfly needs equal spacing.
+    worst_c, n_bad_c, n_tot_c, n_tick_c = 0.0, 0, 0, 0
+    K_grid = np.linspace(S * np.exp(-m_range[1]), S * np.exp(-m_range[0]),
+                         n_grid)
+    m_grid = np.log(S / K_grid)
     for T in T_list:
         for sg in sigma_list:
             for r in r_list:
-                K_grid = S * np.exp(-np.linspace(m_range[0], m_range[1],
-                                                 n_grid))
-                K_grid = np.sort(K_grid)
-                m_grid = np.log(S / K_grid)
                 X = np.column_stack([m_grid, np.full(n_grid, T),
                                      np.full(n_grid, r), np.full(n_grid, sg)])
                 C = predict_scaled(X) * K_grid
-                # non-uniform K spacing, so use the divided second difference
-                h1 = K_grid[1:-1] - K_grid[:-2]
-                h2 = K_grid[2:] - K_grid[1:-1]
-                d2 = 2.0 * (h2 * C[:-2] - (h1 + h2) * C[1:-1] + h1 * C[2:]) \
-                    / (h1 * h2 * (h1 + h2))
-                n_tot_c += len(d2)
-                bad = d2 < -tol
+                fly = C[:-2] - 2.0 * C[1:-1] + C[2:]      # rupees
+                n_tot_c += len(fly)
+                bad = fly < -tol
                 n_bad_c += int(bad.sum())
+                n_tick_c += int((fly < -tick).sum())
                 if bad.any():
-                    worst_c = max(worst_c, float(-d2[bad].min()))
+                    worst_c = max(worst_c, float(-fly[bad].min()))
     out["convex_in_K"] = {"n_bad": n_bad_c, "n_total": n_tot_c,
-                          "worst": worst_c}
+                          "worst": worst_c, "n_tick": n_tick_c,
+                          "spacing": float(K_grid[1] - K_grid[0])}
     return out
 
 
@@ -196,10 +217,13 @@ def check_table(name, pw, sw, K_ref=100.0):
                        ("below_upper", "C <= S e^-qT")):
         ok = pw[key]
         v = pw["viol_" + key]
+        okt = pw["tick_" + key]
         rows.append({
             "model": name, "check": label, "scope": "test sample",
             "n_total": int(len(ok)), "n_violations": int((~ok).sum()),
             "pct": 100.0 * float((~ok).mean()),
+            "n_material": int((~okt).sum()),
+            "pct_material": 100.0 * float((~okt).mean()),
             "worst": float(v.max()) if len(v) else 0.0,
         })
     for key, label in (("monotone_in_S", "dC/dS >= 0"),
@@ -210,6 +234,8 @@ def check_table(name, pw, sw, K_ref=100.0):
             "model": name, "check": label, "scope": "grid sweep",
             "n_total": int(d["n_total"]), "n_violations": int(d["n_bad"]),
             "pct": 100.0 * d["n_bad"] / max(d["n_total"], 1),
+            "n_material": int(d.get("n_tick", 0)),
+            "pct_material": 100.0 * d.get("n_tick", 0) / max(d["n_total"], 1),
             "worst": float(d["worst"]),
         })
     return pd.DataFrame(rows)
@@ -233,14 +259,18 @@ def by_moneyness(name, pw):
 def summarise(tab, verbose=True):
     """Print the check table grouped by model."""
     if verbose:
-        print("  %-26s %-16s %-12s %8s %7s %12s"
-              % ("model", "check", "scope", "n viol", "%", "worst"))
+        print("  violations at a numerical tolerance (1e-9 / 1e-7), and")
+        print("  MATERIAL violations larger than one tick (Rs %.2f).\n" % TICK)
+        print("  %-24s %-16s %-11s %8s %7s %9s %11s"
+              % ("model", "check", "scope", "n viol", "%", "material",
+                 "worst"))
         for mdl, g in tab.groupby("model", sort=False):
             for _, rrow in g.iterrows():
-                flag = "" if rrow.n_violations == 0 else "   <--"
-                print("  %-26s %-16s %-12s %8d %6.2f%% %12.3e%s"
-                      % (mdl[:26], rrow.check, rrow.scope,
-                         rrow.n_violations, rrow.pct, rrow.worst, flag))
+                flag = "" if rrow.n_material == 0 else "  <--"
+                print("  %-24s %-16s %-11s %8d %6.2f%% %9d %11.3e%s"
+                      % (mdl[:24], rrow.check, rrow.scope,
+                         rrow.n_violations, rrow.pct, rrow.n_material,
+                         rrow.worst, flag))
     return tab
 
 
@@ -326,6 +356,30 @@ def _self_test(verbose=True):
     chk("table carries violation counts", "n_violations" in tab.columns)
     chk("counts are non-zero where they should be",
         int(tab.loc[tab.check == "C >= 0", "n_violations"].iloc[0]) > 0)
+
+    # ---- the materiality threshold separates noise from tradable ----
+    # A shift of half a tick must register at the numerical tolerance and
+    # NOT at the tick threshold; a shift of ten ticks must register at both.
+    pw_small = pointwise_checks(y - 0.5 * TICK / 100.0, S, K, T, r, q, m=m)
+    t_small = check_table("tiny", pw_small, sw)
+    row = t_small[t_small.check == "C >= 0"].iloc[0]
+    chk("a sub-tick breach is counted at the tolerance",
+        int(row.n_violations) > 0)
+    chk("a sub-tick breach is NOT counted as material",
+        int(row.n_material) == 0)
+
+    pw_big = pointwise_checks(y - 10 * TICK / 100.0, S, K, T, r, q, m=m)
+    t_big = check_table("big", pw_big, sw)
+    rowb = t_big[t_big.check == "C >= 0"].iloc[0]
+    chk("a ten-tick breach is counted as material",
+        int(rowb.n_material) > 0)
+    chk("material count never exceeds the tolerance count",
+        bool((pd.concat([tab, t_small, t_big]).eval(
+            "n_material <= n_violations")).all()))
+
+    # ---- convexity is reported in rupees, so a tick means something ----
+    chk("convexity is reported as a butterfly value in price units",
+        "spacing" in sw["convex_in_K"])
     bm = by_moneyness("test-model", pw_bad)
     chk("moneyness breakdown covers the sample",
         int(bm["n"].sum()) == len(m))

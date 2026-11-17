@@ -300,35 +300,43 @@ than inspection, and the mixed-set number is kept in the results as the evidence
 
 Same frozen split. Errors in currency units at `K = 100`, test split.
 
-| Model | Test RMSE | Total 5.28 violations | Negative prices |
-|---|---|---|---|
-| OLS / Ridge | 10.4565 | 11,491 | 679 |
-| OLS quadratic | 2.2614 | 10,361 | 586 |
-| Random forest | 0.8195 | **6,906** | **0** |
-| Neural net | **0.2478** | **21,225** | 476 |
-| Neural net (softplus) | **0.1952** | 7,980 | **0** |
-| Black-Scholes | 1.5e-14 | **0** | **0** |
+Violations are counted at a numerical tolerance and, separately, above one
+tick (Rs 0.05) - the materiality threshold added after the gate review.
 
-**The accuracy ranking and the consistency ranking are opposites.** The
-unconstrained network has the lowest error of any unconstrained model and the
-highest violation count. A single global statistic would rank it first and say
-nothing about the 476 negative prices, which is the case for reporting counts.
+| Model | Test RMSE | Violations (raw) | **Material** | Negative prices |
+|---|---|---|---|---|
+| OLS / Ridge | 10.4565 | 11,491 | 1,943 | 679 |
+| OLS quadratic | 2.2614 | 10,361 | 3,375 | 586 |
+| Random forest | 0.8195 | **6,655** | **3,612** | **0** |
+| Neural net | **0.2478** | **20,923** | 1,653 | 476 |
+| Neural net (softplus) | 0.1952 | 7,927 | **1,059** | **0** |
+| Black-Scholes | 1.5e-14 | **0** | **0** | **0** |
+
+**Accuracy and good behaviour come apart, and the materiality threshold
+decides which model is worst.** On raw counts the forest looks best and the
+unconstrained network worst; counting only violations beyond a tick reverses
+it - the forest is worst, with a worst butterfly worth **Rs 6.04**, because a
+step function's second difference swings hard at every step. Either way a
+single global error statistic would rank the network first and say nothing
+about its 476 negative prices.
 
 Three results worth carrying forward:
 
 - **A model linear in log-moneyness is necessarily concave in strike.** With
   `y = C/K` linear in `m`, `d2C/dK2 = -(dy/dm)/K < 0`, so OLS and Ridge
-  violate the butterfly no-arbitrage condition at *every* strike - 100% of
-  grid points. Predicted -1.1857e-02 from the fitted slope, swept -1.177e-02.
+  violate the butterfly condition at *every* strike. Predicted -1.1857e-02
+  from the fitted slope, swept -1.177e-02. **But no single butterfly is worth
+  a tick** - the violation is universal and immaterial, which is only visible
+  once the threshold is applied.
 - **The forest cannot predict a negative price**, because every prediction is
-  an average of non-negative training targets. The same property makes it fail
-  convexity at 37.6% of points: a step function is locally neither convex nor
-  concave.
-- **Constraining the output was not a trade-off.** A softplus head removed
-  every negative price and every monotonicity violation *and* cut RMSE by 21%.
-  It encodes a property the target genuinely has, so it removes a degree of
-  freedom the model was wasting. Clipping would have fixed the count and left
-  the model unchanged.
+  an average of non-negative training targets - the same property its own
+  self-test asserts.
+- **The constraint is free, not a gain.** Over **8 seeds** the softplus and
+  unconstrained networks are statistically indistinguishable
+  (`0.2132 +/- 0.0558` against `0.2105 +/- 0.0337`, paired t = 0.10). An
+  earlier single-seed run suggested a 21% improvement; that was the flattering
+  draw. What *is* robust is structural: zero negative prices in every seed
+  against 136 to 476. **Structural guarantees do not have standard errors.**
 
 ---
 
