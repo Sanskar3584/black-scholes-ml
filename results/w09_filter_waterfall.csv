@@ -1,0 +1,9 @@
+raw NIFTY option rows,4408
+expiry has a usable forward,4092
+maturity >= 7 days,3808
+traded today,2346
+open interest > 0,2343
+out of the money,1450
+|ln(F/K)| <= 0.30,1410
+premium >= Rs 5.00,1198
+passes no-arbitrage screen,1198

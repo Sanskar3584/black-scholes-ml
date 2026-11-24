@@ -63,6 +63,7 @@ programmatic requests, so it has to be downloaded by hand. See `data_sources.md`
 ├── neural_net.py           p -> 32 -> 16 -> 1, forward and backward written out
 ├── financial_checks.py     the 5.28 checks, reported as violation counts
 ├── nse_data.py             bhavcopy reader, implied forward, data-quality checks
+├── clean_options.py        raw bhavcopies -> clean_options.csv, with a waterfall
 ├── test_nse_data.py        fixture tests for the above (32 checks)
 ├── ML_experiment_plan.md   the specification required by master plan 5.31
 ├── week1.py                August Week 1    - returns, distributions, normality
@@ -149,12 +150,14 @@ python tree_models.py          # split rule, importance, scikit-learn agreement
 python neural_net.py           # gradients vs finite differences, He init, determinism
 python financial_checks.py     # Black-Scholes passes; planted defects are caught
 python test_nse_data.py        # bhavcopy reader against a synthetic fixture
+python clean_options.py --self-test   # filters, parity conversion, screening
 ```
 
-Once the first bhavcopy is downloaded (see `data_sources.md` section 5):
+Once bhavcopies are downloaded (see `data_sources.md` section 5):
 
 ```
-python nse_data.py data/raw/fo_bhavcopy/fo_<date>.zip
+python nse_data.py data/raw/fo_bhavcopy/fo_<date>.zip   # inspect one file
+python clean_options.py                                 # clean them all
 ```
 
 Each runs a self-test over tens of thousands of random parameter sets and reports every
@@ -337,6 +340,31 @@ Three results worth carrying forward:
   earlier single-seed run suggested a 21% improvement; that was the flattering
   draw. What *is* robust is structural: zero negative prices in every seed
   against 136 to 476. **Structural guarantees do not have standard errors.**
+
+### Real data - status
+
+Two files downloaded so far, **both outside the planned twelve-month window**,
+so they serve as format and edge-case checks rather than as data. The cleaning
+pipeline is built and validated against them: 4,408 raw rows to 1,198 clean,
+zero no-arbitrage failures, and the parity conversion reproduces the true call
+price to **0.006 index points** on synthetic input.
+
+Two findings from those two files:
+
+- **The expiry-day settlement trap.** On expiry day NSE writes the underlying's
+  final settlement value into `SttlmPric` for every expiring contract - the
+  same number for calls and puts at all strikes. `C - P` is then identically
+  zero, the reference-strike search picks an arbitrary strike, and the implied
+  forward returns 27,900 against a spot of 25,350. Parity residuals went from
+  a median of 5.84 index points to **5,675**. Nothing else looked wrong.
+  `data_sources.md` 5.7 has the detail; the fixture test plants the defect.
+- **The moneyness band alone is not enough.** A deep out-of-the-money put worth
+  Rs 0.60 converts by parity to a deep in-the-money call worth Rs 6,453 -
+  exact arithmetic, still Rs 0.60 of information. Below a quoted premium of
+  about Rs 5 the implied volatility is noise: median 28-45% with an IQR of
+  7-11 points, against 14.4% and 1.9 points for the liquid body. A minimum
+  premium of Rs 5.00 is now applied, set from the principle that one tick
+  should be at most 1% of the quote.
 
 ---
 
