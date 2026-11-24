@@ -220,20 +220,60 @@ def implied_forward(df, r=0.065, verbose=True):
     data-quality measure, so both are returned where spot is available.
     """
     rows = []
+    skipped = []
+    t0 = (df["trade_date"].dropna().iloc[0]
+          if "trade_date" in df and df["trade_date"].notna().any() else None)
+
     for (exp,), g in df.groupby(["expiry"]):
-        ce = g[g.opt_type == "CE"].set_index("strike")["settle"]
-        pe = g[g.opt_type == "PE"].set_index("strike")["settle"]
+        T = max((exp - t0).days, 0) / 365.0 if t0 is not None else np.nan
+
+        # ---- the expiring series is not usable, and not for the obvious
+        # reason. On expiry day NSE writes the UNDERLYING's final settlement
+        # value into SttlmPric for every expiring contract - calls and puts,
+        # every strike, the same number. It is not an option price at all.
+        #
+        # That makes C - P identically zero across all strikes, so the
+        # argmin below picks an arbitrary one and the implied forward comes
+        # back as that strike. On 23 Nov 2026 it returned F = 27,900 against
+        # a spot of 25,350, and the parity check duly reported a median
+        # residual of 5,675 index points.
+        #
+        # These contracts have no time value and would be removed by the
+        # T >= 7 days filter anyway, but the forward is estimated BEFORE any
+        # filtering, so it has to be refused here.
+        if np.isfinite(T) and T <= 0:
+            skipped.append((exp, "expiring series (T = 0)"))
+            continue
+
+        ce = g[g.opt_type == "CE"].set_index("strike")
+        pe = g[g.opt_type == "PE"].set_index("strike")
         common = ce.index.intersection(pe.index)
         if len(common) == 0:
             continue
-        diff = (ce[common] - pe[common]).abs()
-        k_star = float(diff.idxmin())
 
-        if "trade_date" in df and df["trade_date"].notna().any():
-            t0 = df["trade_date"].dropna().iloc[0]
-            T = max((exp - t0).days, 0) / 365.0
+        # Same degeneracy can appear without T = 0 if a settlement column is
+        # written oddly. Detect it rather than computing on it.
+        s_all = pd.concat([ce["settle"], pe["settle"]])
+        if s_all.nunique() <= 1:
+            skipped.append((exp, "settlement price constant across strikes"))
+            continue
+
+        # ---- choose the reference strike among PAIRS WHERE BOTH LEGS TRADED
+        # Picking argmin |C - P| over all strikes assumes both legs carry a
+        # real price. Where neither traded and both marks are equal, |C - P|
+        # is zero and that strike wins on a technicality.
+        if "volume" in ce and "volume" in pe:
+            live = common[(ce.loc[common, "volume"].fillna(0).to_numpy() > 0)
+                          & (pe.loc[common, "volume"].fillna(0).to_numpy() > 0)]
         else:
-            T = np.nan
+            live = common
+        pool = live if len(live) >= 3 else common
+
+        c, p = ce.loc[pool, "settle"], pe.loc[pool, "settle"]
+        diff = (c - p).abs()
+        k_star = float(diff.idxmin())
+        common = pool
+        ce, pe = ce["settle"], pe["settle"]
 
         disc = np.exp(r * T) if np.isfinite(T) else 1.0
         F = k_star + disc * float(ce[k_star] - pe[k_star])
@@ -256,7 +296,13 @@ def implied_forward(df, r=0.065, verbose=True):
                 rec["q_implied"] = np.nan
         rows.append(rec)
 
-    out = pd.DataFrame(rows).sort_values("expiry").reset_index(drop=True)
+    out = pd.DataFrame(rows).sort_values("expiry").reset_index(drop=True) \
+        if rows else pd.DataFrame(
+            columns=["expiry", "T", "k_star", "F_implied", "n_paired_strikes"])
+    if verbose and skipped:
+        print("  expiries refused for the forward:")
+        for exp, why in skipped:
+            print("    %s  -  %s" % (pd.Timestamp(exp).date(), why))
     if verbose and len(out):
         print("  implied forward by expiry:")
         for _, x in out.iterrows():

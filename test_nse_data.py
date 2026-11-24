@@ -209,6 +209,46 @@ except ValueError as e:
 except Exception as e:                                   # noqa: BLE001
     expect("raises ValueError (not %s)" % type(e).__name__, False)
 
+print("\n[3b] the expiry-day settlement trap")
+# On expiry day NSE writes the UNDERLYING's final settlement value into
+# SttlmPric for every expiring contract - same number, calls and puts, all
+# strikes. C - P is then identically zero, argmin picks an arbitrary strike,
+# and the implied forward comes back as that strike. Found on the real
+# 23 Nov 2026 file, where it produced F = 27,900 against a spot of 25,350
+# and a parity median of 5,675 index points.
+expiring = make_rows()
+exp0 = EXPIRIES[0]
+k = (expiring.TckrSymb == "NIFTY") & (expiring.XpryDt == exp0.strftime("%d-%m-%Y"))
+expiring.loc[k, "SttlmPric"] = SPOT          # the trap
+# and make that expiry today, so T = 0
+expiring["TradDt"] = exp0.strftime("%d-%m-%Y")
+p_exp = zip_it(expiring, "fo_expiryday.zip")
+d = nse_data.filter_nifty_options(
+    nse_data.read_bhavcopy(p_exp, verbose=False), verbose=False)
+f = nse_data.implied_forward(d, r=R, verbose=False)
+expect("the T = 0 expiring series is refused a forward",
+       exp0 not in set(pd.Timestamp(x) for x in f["expiry"]),
+       "(%d expiries kept of %d)" % (len(f), len(EXPIRIES)))
+if len(f):
+    worst = (f["F_implied"] / f["S"]).max() if "S" in f else 1.0
+    expect("no surviving forward is absurd (F/S < 1.5)", worst < 1.5,
+           "(max F/S %.3f)" % worst)
+rr = nse_data.run_quality_checks(d, fwd=f, r=R, verbose=False)
+key6a = "6a parity shape (both legs traded, |m|<=0.3)"
+expect("parity is not poisoned by the expiring series",
+       rr[key6a]["ok"] is True, "- %s" % rr[key6a]["detail"])
+
+# a settlement column that is constant WITHOUT T = 0 must also be refused
+flat = make_rows()
+k2 = (flat.TckrSymb == "NIFTY") & (flat.XpryDt == EXPIRIES[1].strftime("%d-%m-%Y"))
+flat.loc[k2, "SttlmPric"] = SPOT
+d2 = nse_data.filter_nifty_options(
+    nse_data.read_bhavcopy(zip_it(flat, "fo_flat.zip"), verbose=False),
+    verbose=False)
+f2 = nse_data.implied_forward(d2, r=R, verbose=False)
+expect("a constant settlement column is refused even when T > 0",
+       EXPIRIES[1] not in set(pd.Timestamp(x) for x in f2["expiry"]))
+
 print("\n[4] alias resolution is tolerant of case and separators")
 leg = make_rows().rename(columns={
     "TckrSymb": "SYMBOL", "XpryDt": "EXPIRY_DT", "StrkPric": "STRIKE_PR",

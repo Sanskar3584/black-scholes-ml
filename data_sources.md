@@ -289,6 +289,45 @@ wrong layout raises rather than returning nonsense, and that 6a's blindness to a
 offset is covered by 6b. 32 checks, all passing. It is a fixture, not the real file, so it
 proves the logic rather than the column names.
 
+### 5.7 The expiry-day settlement trap
+
+*Found 24 November, on the second real file. The first file did not expose it because no
+expiry fell on its trading date.*
+
+**On expiry day, NSE writes the underlying's final settlement value into `SttlmPric` for
+every expiring contract** - the same number for calls and puts at every strike. On the
+23 November 2026 file that value is 25,349.65, the spot, repeated across all 158 strikes of
+the expiring series. It is not an option price.
+
+The consequence is not a visibly silly number, which is what makes it dangerous:
+
+| | 23 Nov, before the fix | after |
+|---|---|---|
+| implied forward, expiring series | **F = 27,900** (spot 25,350) | refused |
+| parity median, both legs traded | **5,675** index points | **5.84** |
+| parity max | 7,050 | 331 |
+
+`C - P` is identically zero across all strikes, so the `argmin |C - P|` that picks the
+reference strike selects an arbitrary one, and `F = K* + (C* - P*)` returns that strike.
+Every downstream number inherits it.
+
+Three fixes, all in `implied_forward`:
+
+1. **Refuse any expiry with `T <= 0`.** These contracts have no time value and the
+   `T >= 7 days` filter in section 4 would drop them anyway - but the forward is estimated
+   *before* filtering, so it has to be refused here.
+2. **Refuse any expiry whose settlement price is constant across strikes**, which is the
+   signature of the trap and catches it even when `T > 0`.
+3. **Choose the reference strike among pairs where both legs actually traded.** `argmin
+   |C - P|` assumes both legs carry a real price; where neither traded and both marks are
+   equal, that strike wins on a technicality.
+
+For the record, `ClsPric` on the expiring series *is* a real traded close, and `LastPric`
+tracks intrinsic closely. Neither is used: expiring contracts carry no volatility
+information and are outside the dataset specification regardless.
+
+`test_nse_data.py` now plants this exact defect in the fixture, so it cannot return.
+
 **Parity will not hold exactly on real data.** Bid-ask spread, non-synchronous closes and
 stale settlement prices all break it. A few index points is normal; tens of points means
 the settlement prices are suspect. The size of the violation is a measure of data quality
