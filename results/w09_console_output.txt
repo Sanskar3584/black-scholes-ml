@@ -1,0 +1,156 @@
+
+==============================================================================
+POST-MIDSEM WEEK 8 - RESIDUAL LEARNING (HYBRID A)
+==============================================================================
+Master plan 11.9; post-midsem plan Week 8. Seed 20260825.
+
+==============================================================================
+MODULE SELF-TESTS
+==============================================================================
+  hybrid_models.py       ALL CHECKS PASSED
+  clean_options.py       ALL CHECKS PASSED
+
+==============================================================================
+TASK 1  -  RESIDUAL LEARNING WHERE THE TRUTH IS KNOWN
+==============================================================================
+  A market whose prices come from a volatility SMILE
+    sigma(m) = sigma_atm * (1 -0.35 m +0.90 m^2)
+  and a benchmark priced with the flat at-the-money volatility -
+  what a desk carrying one number per expiry would quote.
+  The residual is therefore real, structured and known.
+
+  split 14000 train / 3000 validation / 3000 test
+  residual before learning: mean |eps| 0.4628, max 16.1698
+
+  Test-set error, index points (the market price is the target):
+
+  model                          kind             MAE      RMSE    max err
+  Black-Scholes (flat ATM vol)   benchmark     0.4711    1.4218    15.8978
+  OLS, pure                      pure ML       9.8112   12.1384    39.0507
+  OLS, hybrid                    hybrid A      0.5039    1.0243    12.2109
+  Random forest, pure            pure ML       0.4292    0.6518     4.8882
+  Random forest, hybrid          hybrid A      0.0332    0.1116     2.3866
+  Neural net, pure               pure ML       0.1228    0.1635     0.8377
+  Neural net, hybrid             hybrid A      0.0345    0.0572     0.6169
+
+  Against the Black-Scholes benchmark (1.4218):
+    OLS            pure  12.1384 ( 8.54x)   hybrid   1.0243 ( 0.72x)
+    Random forest  pure   0.6518 ( 0.46x)   hybrid   0.1116 ( 0.08x)
+    Neural net     pure   0.1635 ( 0.11x)   hybrid   0.0572 ( 0.04x)
+
+  THE POINT OF 5.5, MEASURED. With the SAME learner, the hybrid
+  beats the pure model every time, because Black-Scholes already
+  supplies the structure - discounting, the payoff shape, the bulk
+  of the moneyness dependence - and the model only has to supply
+  what the formula misses.
+
+==============================================================================
+TASK 2  -  THE REAL-DATA PATH
+==============================================================================
+==============================================================================
+BUILDING THE REAL-DATA MODELLING SET
+==============================================================================
+  1198 clean quotes, 2 trading date(s), 15 expiries
+  implied volatility recovered on 1198 of 1198 rows (100.0%)
+    range 11.6% to 39.0%, median 15.8%
+    solver: {'newton': 1198}
+
+  benchmark volatility (previous date, same expiry, ATM):
+    available on 531 of 1198 rows (44.3%)
+      2026-11-13   580 rows, benchmark on    0
+      2026-11-23   618 rows, benchmark on  531
+
+  Black-Scholes residual on the 531 model-ready rows:
+    mean +37.826, mean |eps| 37.905, max |eps| 249.523 index points
+    mean |eps| / price = 23.26%
+    This is the quantity Hybrid A learns. It is NOT zero,
+    which is the point: yesterday's at-the-money volatility
+    cannot price today's whole smile.
+
+  wrote data/real_option_dataset.csv  (1198 rows, 30 columns)
+
+  sigma_hist is blank: cache ends 2024-12-31, option data starts 2026-11-13
+  Fix with one line in week1.py (END_DATE) and a re-run,
+  on a machine with network access.
+
+  NOT YET A MODELLING SET. 2 trading dates against the
+  twelve months sampled weekly the specification asks for.
+  The benchmark needs a PRIOR date for the same expiry, so
+  the first date in any sample can never be model-ready -
+  with two dates that costs half the data.
+
+==============================================================================
+TASK 3  -  WHAT THE REAL RESIDUAL IS MADE OF
+==============================================================================
+  The benchmark uses the PREVIOUS date's at-the-money volatility,
+  so the residual contains two different things. Repricing with
+  TODAY's at-the-money volatility isolates them.
+
+    total residual        mean |eps|   37.90 index points
+      level part            23.97  (63%)  stale volatility
+      shape part            13.94  (37%)  the smile itself
+    residual is 99% one-sided
+
+  Median at-the-money implied volatility by date:
+    2026-11-13   13.75%
+    2026-11-23   15.76%
+    moved +2.01 points over the 10-day gap.
+
+  THIS IS A FINDING ABOUT THE SAMPLING CADENCE, NOT ABOUT NIFTY.
+  sigma_atm_prev goes stale at exactly the rate the sample is
+  thinned. With weekly files the benchmark is a week old, and the
+  volatility LEVEL move over that week swamps the smile shape -
+  63% against 37% here. Master plan 5.5 asks the model to
+  learn 'only the systematic part of the model error'. A level
+  move over a week is the UNsystematic part: it is roughly a
+  random walk, and no function of [m, T, r] can predict it.
+
+  sigma_hist does not have this problem. It is computed from the
+  daily NIFTY close series, which is complete regardless of how
+  often the option files are sampled. That makes the week1.py
+  re-run a design requirement rather than a missing column.
+
+==============================================================================
+FIGURES  ->  ml_plots/
+==============================================================================
+  wrote hybrid_smile_experiment.png, hybrid_real_residual.png
+
+==============================================================================
+CHECKPOINT
+==============================================================================
+  Does residual learning reduce real-market Black-Scholes error?
+
+  ON SYNTHETIC DATA, DEFINITIVELY YES. Where the model error is
+  known by construction, the best hybrid cuts RMSE from 1.4218 to
+  0.0572, a factor of 24.9, and beats the best pure model (0.1635)
+  with the same learners. Black-Scholes supplies the structure;
+  the model supplies only what the formula misses.
+
+  ON REAL DATA, NOT YET ANSWERABLE. 2 trading dates, of which the
+  first cannot be model-ready because the benchmark needs a prior
+  date. 531 usable quotes is not a dataset, and with one date
+  there is no chronological split to speak of.
+
+  What the two dates DO establish is that 63% of the real
+  residual is stale-volatility level error rather than smile
+  shape. That is a reason to prefer sigma_hist over
+  sigma_atm_prev once the window is in, and it is an argument
+  the synthetic experiment could not have produced.
+
+==============================================================================
+SUMMARY
+==============================================================================
+  seed                           20260825
+  smile_bs_rmse                  1.4218202971093052
+  smile_best_hybrid_rmse         0.05717435536986964
+  smile_best_pure_rmse           0.1634591656905921
+  smile_hybrid_gain_vs_bs        24.86814740474698
+  real_trading_dates             2
+  real_clean_quotes              1198
+  real_model_ready               531
+  real_residual_mean_abs         37.9046935057164
+  real_residual_level_share      0.6322793807759459
+
+  runtime 35.4 s
+
+Full console output written to: results/w09_console_output.txt

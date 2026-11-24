@@ -1,0 +1,10 @@
+seed,20260825.0
+smile_bs_rmse,1.4218202971093052
+smile_best_hybrid_rmse,0.05717435536986964
+smile_best_pure_rmse,0.1634591656905921
+smile_hybrid_gain_vs_bs,24.86814740474698
+real_trading_dates,2.0
+real_clean_quotes,1198.0
+real_model_ready,531.0
+real_residual_mean_abs,37.9046935057164
+real_residual_level_share,0.6322793807759459

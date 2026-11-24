@@ -33,7 +33,7 @@ Progression: **Mathematics -> Numerics -> Data -> Machine Learning -> Hybrid Pri
 | Post-midsem Week 5 | Monte Carlo and three-method cross-validation | **Complete** |
 | Post-midsem Week 6 | ML experiment plan, synthetic dataset, regression baselines | **Complete** |
 | Post-midsem Week 7 | Tree ensemble, neural network, Stage Gate 2 | **Complete** |
-| Post-midsem Week 8 | Real market data and hybrid models | In progress |
+| Post-midsem Week 8 | Residual learning (Hybrid A) | **Complete**, synthetic; real data blocked |
 
 Work follows the plan in `docs/Sanskar_Plan_to_15Dec.xlsx`, which carries the status and
 evidence link for every task.
@@ -64,6 +64,8 @@ programmatic requests, so it has to be downloaded by hand. See `data_sources.md`
 ├── financial_checks.py     the 5.28 checks, reported as violation counts
 ├── nse_data.py             bhavcopy reader, implied forward, data-quality checks
 ├── clean_options.py        raw bhavcopies -> clean_options.csv, with a waterfall
+├── build_real_dataset.py   clean quotes -> IV, benchmark, residual
+├── hybrid_models.py        Hybrid A residual learning + the smile fixture
 ├── test_nse_data.py        fixture tests for the above (32 checks)
 ├── ML_experiment_plan.md   the specification required by master plan 5.31
 ├── week1.py                August Week 1    - returns, distributions, normality
@@ -74,6 +76,7 @@ programmatic requests, so it has to be downloaded by hand. See `data_sources.md`
 ├── postmidsem_week5.py     Post-midsem Wk 5 - Monte Carlo and the three-method grid
 ├── postmidsem_week6.py     Post-midsem Wk 6 - synthetic dataset and regression
 ├── postmidsem_week7.py     Post-midsem Wk 7 - tree, network, Stage Gate 2
+├── postmidsem_week8.py     Post-midsem Wk 8 - residual learning
 ├── week3_evidence.py       regenerates the Stage Gate 1 evidence summary
 ├── data_sources.md         NSE / RBI sources, field mapping, access notes
 ├── data/                   cached NIFTY 50 price history
@@ -122,7 +125,8 @@ python postmidsem_week3.py  # ~2 min   Post-midsem Week 3
 python postmidsem_week4.py  # ~1 min   Post-midsem Week 4
 python postmidsem_week5.py  # ~3 s     Post-midsem Week 5
 python postmidsem_week6.py  # ~6 s     Post-midsem Week 6
-python postmidsem_week7.py  # ~25 s    Post-midsem Week 7 (Stage Gate 2)
+python postmidsem_week7.py  # ~2 min   Post-midsem Week 7 (Stage Gate 2)
+python postmidsem_week8.py  # ~3 min   Post-midsem Week 8 (Hybrid A)
 python week3_evidence.py    # ~20 s    Stage Gate 1 evidence summary
 ```
 
@@ -151,6 +155,7 @@ python neural_net.py           # gradients vs finite differences, He init, deter
 python financial_checks.py     # Black-Scholes passes; planted defects are caught
 python test_nse_data.py        # bhavcopy reader against a synthetic fixture
 python clean_options.py --self-test   # filters, parity conversion, screening
+python hybrid_models.py        # the smile fixture, leakage guard, hybrid vs pure
 ```
 
 Once bhavcopies are downloaded (see `data_sources.md` section 5):
@@ -365,6 +370,41 @@ Two findings from those two files:
   7-11 points, against 14.4% and 1.9 points for the liquid body. A minimum
   premium of Rs 5.00 is now applied, set from the principle that one tick
   should be at most 1% of the quote.
+
+### Post-midsem Week 8 - residual learning (Hybrid A)
+
+`epsilon = C_market - C_BS`, learn `x -> epsilon`, predict
+`C_hybrid = C_BS + epsilon_hat` (master plan 5.4).
+
+Validated on a synthetic market where the model error is **known by
+construction**: prices generated from a volatility smile, benchmark priced at
+the flat at-the-money volatility. Test RMSE in index points:
+
+| Learner | Pure ML | **Hybrid A** | Benchmark |
+|---|---|---|---|
+| OLS | 12.1384 | **1.0243** | 1.4218 |
+| Random forest | 0.6518 | **0.1116** | 1.4218 |
+| Neural net | 0.1635 | **0.0572** | 1.4218 |
+
+**The hybrid beats the pure model with every learner**, same split, same
+hyperparameters. The OLS row is the clearest statement of why: a linear map
+cannot represent a price surface - 8.5x worse than simply using the benchmark
+- but it can represent a smile *correction* well enough to beat it. Only the
+target changed.
+
+The guard that matters: pricing `C_BS` with the option's own implied
+volatility makes the residual identically zero and the metrics look perfect.
+`residual_dataset()` refuses such a benchmark, per the master plan 11.9
+milestone.
+
+**On real data the result is not yet available** - 2 files of about 60. What
+the two dates did establish is what the residual is made of: **63% stale
+volatility level, 37% smile shape**, with the at-the-money level moving 2.0
+points over the ten-day gap. That is a finding about the sampling cadence.
+`sigma_atm_prev` goes stale at the rate the sample is thinned, and a level
+move over a week is precisely the *unsystematic* part section 5.5 says not to
+learn. `sigma_hist` is immune, coming from the daily close series, which makes
+re-running `week1.py` a design requirement rather than a missing column.
 
 ---
 
