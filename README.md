@@ -33,7 +33,8 @@ Progression: **Mathematics -> Numerics -> Data -> Machine Learning -> Hybrid Pri
 | Post-midsem Week 5 | Monte Carlo and three-method cross-validation | **Complete** |
 | Post-midsem Week 6 | ML experiment plan, synthetic dataset, regression baselines | **Complete** |
 | Post-midsem Week 7 | Tree ensemble, neural network, Stage Gate 2 | **Complete** |
-| Post-midsem Week 8 | Residual learning (Hybrid A) | **Complete**, synthetic; real data blocked |
+| Post-midsem Week 8 | Residual learning (Hybrid A) | **Complete** |
+| Final report | 8 chapters, 20 pages | **Complete** |
 
 Work follows the plan in `docs/Sanskar_Plan_to_15Dec.xlsx`, which carries the status and
 evidence link for every task.
@@ -154,6 +155,10 @@ python tree_models.py          # split rule, importance, scikit-learn agreement
 python neural_net.py           # gradients vs finite differences, He init, determinism
 python financial_checks.py     # Black-Scholes passes; planted defects are caught
 python test_nse_data.py        # bhavcopy reader against a synthetic fixture
+
+# or everything at once
+python run_all.py --tests      # every module self-test, about 30 s
+python run_all.py              # every stage, in order
 python clean_options.py --self-test   # filters, parity conversion, screening
 python hybrid_models.py        # the smile fixture, leakage guard, hybrid vs pure
 ```
@@ -346,13 +351,33 @@ Three results worth carrying forward:
   draw. What *is* robust is structural: zero negative prices in every seed
   against 136 to 476. **Structural guarantees do not have standard errors.**
 
+### The headline result
+
+Out of sample, on four trading dates no model saw, **residual learning cut
+Black-Scholes RMSE from 35.00 to 27.33 - a 22% reduction** - winning in 4 of 5
+moneyness buckets and 4 of 5 maturity buckets.
+
+On the same data **pure machine learning fails**: the best pure model reached
+116.85 against the benchmark's 35.00, three times worse than using the formula
+alone. The hybrid's advantage is not that machine learning is powerful here;
+it is that Black-Scholes does most of the work and the model is asked for very
+little.
+
+The ranking also **inverts between synthetic and real data**: the neural
+network was the best hybrid on a noiseless target (0.057) and the worst on
+market quotes (150.9). Any conclusion drawn only from synthetic data would
+have been wrong about which model to deploy.
+
+Full write-up in `reports/Technical Report - Complete.docx`; source in
+`report_src/`.
+
 ### Real data - status
 
-Two files downloaded so far, **both outside the planned twelve-month window**,
-so they serve as format and edge-case checks rather than as data. The cleaning
-pipeline is built and validated against them: 4,408 raw rows to 1,198 clean,
-zero no-arbitrage failures, and the parity conversion reproduces the true call
-price to **0.006 index points** on synthetic input.
+**20 consecutive daily bhavcopies**, 28 Oct to 26 Nov 2026: 41,176 raw rows to
+**11,147** clean, zero no-arbitrage failures, 10,264 model-ready. The parity
+conversion reproduces the true call price to **0.006 index points** on
+synthetic input, and on market data the converted-put and native-call implied
+volatilities agree to 0.1-0.4 percentage points where they meet.
 
 Two findings from those two files:
 
