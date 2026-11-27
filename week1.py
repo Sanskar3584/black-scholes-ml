@@ -47,7 +47,7 @@ from scipy import stats
 
 TICKER   = "^NSEI"              # NIFTY 50
 START    = "2015-01-01"
-END      = "2025-01-01"
+END      = "2026-12-01"          # extended 27 Nov 2026 so sigma_hist covers the option window
 CSV_PATH = "data/nifty50_prices.csv"
 
 SEED       = 20260825           # recorded for reproducibility (Deliverable 18)
@@ -97,9 +97,20 @@ def load_prices(ticker=TICKER, start=START, end=END, csv_path=CSV_PATH):
 
     if os.path.exists(csv_path):
         df = pd.read_csv(csv_path, index_col=0, parse_dates=True)
-        DATA_SOURCE = "csv"
-        print(f"Loaded {len(df)} rows from cache: {csv_path}")
-        return df.iloc[:, 0].dropna().astype(float)
+        # A cache that stops short of the requested window is worse than no
+        # cache: it serves stale data silently. This surfaced on 24 November,
+        # when sigma_hist for November 2026 options was being computed against
+        # a series that ended in December 2024. Re-download instead.
+        last = df.index.max()
+        want = pd.Timestamp(end) - pd.Timedelta(days=7)   # allow for holidays
+        if last < want:
+            print(f"Cache ends {last.date()} but {end} was requested; "
+                  f"re-downloading.")
+            os.replace(csv_path, csv_path + ".superseded")
+        else:
+            DATA_SOURCE = "csv"
+            print(f"Loaded {len(df)} rows from cache: {csv_path}")
+            return df.iloc[:, 0].dropna().astype(float)
 
     try:
         import yfinance as yf
