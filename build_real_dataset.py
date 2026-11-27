@@ -145,11 +145,35 @@ def build(src=SRC, dest=DEST, verbose=True):
         np.isfinite(df["sigma_bench"]), "atm IV, previous trading date",
         "unavailable - no prior date for this expiry")
 
-    # sigma_hist stays blank until the close series covers the window
+    # sigma_hist: 21-trading-day realised volatility of NIFTY log returns,
+    # annualised. The primary benchmark volatility of ML_experiment_plan.md
+    # 4.1, and the one immune to the sampling cadence - it comes from the
+    # daily close series regardless of how the option files are sampled.
     st = sigma_hist_status(needed_from=pd.Timestamp(df["trade_date"].min()),
                            verbose=False)
-    df["sigma_hist"] = np.nan
-    df["sigma_hist_status"] = "unavailable" if not st["ok"] else "pending"
+    if st["ok"]:
+        px = pd.read_csv(os.path.join("data", "nifty50_prices.csv"),
+                         index_col=0, parse_dates=True).iloc[:, 0].dropna()
+        lr = np.log(px / px.shift(1)).dropna()
+        rv = lr.rolling(21).std() * np.sqrt(252)
+        # shift(1): the volatility of the 21 days ENDING YESTERDAY, so nothing
+        # from the trading date itself enters the feature.
+        rv = rv.shift(1).dropna()
+        key = pd.to_datetime(df["trade_date"])
+        df["sigma_hist"] = key.map(rv).to_numpy()
+        df["sigma_hist_status"] = np.where(np.isfinite(df["sigma_hist"]),
+                                           "21-day realised, lagged 1 day",
+                                           "no close data for this date")
+        if verbose:
+            ok_h = np.isfinite(df["sigma_hist"])
+            print("\n  sigma_hist (21-day realised, lagged one day):")
+            print("    available on %d of %d rows; range %.1f%% to %.1f%%"
+                  % (ok_h.sum(), len(df),
+                     100 * df.loc[ok_h, "sigma_hist"].min(),
+                     100 * df.loc[ok_h, "sigma_hist"].max()))
+    else:
+        df["sigma_hist"] = np.nan
+        df["sigma_hist_status"] = "unavailable"
 
     usable = np.isfinite(df["sigma_bench"])
     if verbose:
@@ -199,13 +223,17 @@ def build(src=SRC, dest=DEST, verbose=True):
             print("  Fix with one line in week1.py (END_DATE) and a re-run,")
             print("  on a machine with network access.")
         n_dates = df["trade_date"].nunique()
-        if n_dates < 40:
-            print("\n  NOT YET A MODELLING SET. %d trading date%s against the"
-                  % (n_dates, "" if n_dates == 1 else "s"))
-            print("  twelve months sampled weekly the specification asks for.")
-            print("  The benchmark needs a PRIOR date for the same expiry, so")
-            print("  the first date in any sample can never be model-ready -")
-            print("  with two dates that costs half the data.")
+        if n_dates < 12:
+            print("\n  NOT YET A MODELLING SET. %d trading dates against the"
+                  % n_dates)
+            print("  15 to 20 consecutive daily files now specified.")
+        else:
+            print("\n  MODELLING SET READY. %d consecutive trading dates."
+                  % n_dates)
+            print("  The first date can never be model-ready, since the")
+            print("  benchmark needs a prior date for the same expiry; over")
+            print("  %d dates that costs under %.0f%% of the sample."
+                  % (n_dates, 100.0 / n_dates + 1))
     return df
 
 

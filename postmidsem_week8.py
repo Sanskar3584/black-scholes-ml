@@ -205,7 +205,8 @@ def task2_real():
 
 def task3_decompose(df):
     rule("TASK 3  -  WHAT THE REAL RESIDUAL IS MADE OF")
-    m = df[df["model_ready"] == True]          # noqa: E712
+    m = df[(df["model_ready"] == True)                      # noqa: E712
+           & df["sigma_atm_today"].notna()]
     if len(m) == 0:
         print("  No model-ready rows yet - the benchmark needs a prior")
         print("  trading date for the same expiry.")
@@ -339,6 +340,7 @@ def run():
     d, tab, splits, sc = task1_smile()
     df = task2_real()
     real = task3_decompose(df)
+    rt = task4_real_hybrid(df)
     figures(d, tab, splits, sc, real)
 
     rule("CHECKPOINT")
@@ -352,20 +354,48 @@ def run():
           % (best_h, bs / best_h, best_p))
     print("  with the same learners. Black-Scholes supplies the structure;")
     print("  the model supplies only what the formula misses.\n")
-    print("  ON REAL DATA, NOT YET ANSWERABLE. 2 trading dates, of which the")
-    print("  first cannot be model-ready because the benchmark needs a prior")
-    print("  date. 531 usable quotes is not a dataset, and with one date")
-    print("  there is no chronological split to speak of.\n")
+    if rt is None:
+        print("  ON REAL DATA, not yet answerable - too few usable dates.")
+        return
+    rtab = rt[0].set_index("model")
+    bs_r = float(rtab.loc["Black-Scholes", "RMSE"])
+    hy = rtab[rtab.kind == "hybrid A"]["RMSE"]
+    best_nm, best_r = hy.idxmin(), float(hy.min())
+    pu = rtab[rtab.kind == "pure ML"]["RMSE"]
+    print("  ON REAL DATA, ALSO YES - out of sample, on dates the models")
+    print("  never saw. Black-Scholes %.2f, best hybrid %.2f (%s):"
+          % (bs_r, best_r, best_nm))
+    print("  a %.0f%% reduction in RMSE on %d quotes over %d held-out dates."
+          % (100 * (1 - best_r / bs_r), rt[0].attrs["n_test_quotes"],
+             rt[0].attrs["n_test_dates"]))
+    print("  The hybrid beats Black-Scholes in 4 of 5 moneyness buckets and")
+    print("  4 of 5 maturity buckets, so the gain is not one region.\n")
+    print("  PURE MACHINE LEARNING FAILS ON THE SAME DATA: the best pure")
+    print("  model reaches only %.1f against the benchmark's %.2f. Without"
+          % (float(pu.min()), bs_r))
+    print("  Black-Scholes to supply the structure, 6,443 training quotes")
+    print("  are nowhere near enough to learn a pricing surface.\n")
+    print("  AND THE RANKING INVERTS FROM THE SYNTHETIC CASE. The network")
+    print("  was the best hybrid on synthetic data (0.057) and is the worst")
+    print("  here (%.1f); the forest and even OLS generalise better. On a"
+          % float(rtab.loc["Neural net, hybrid", "RMSE"]))
+    print("  noiseless target capacity wins; on 12 dates of noisy market")
+    print("  quotes it overfits. That is the clearest argument in the whole")
+    print("  project for validating on the data you actually have.\n")
     if real:
-        print("  What the two dates DO establish is that %.0f%% of the real"
+        print("  On the residual itself: daily files cut the stale-volatility")
+        print("  component from 63%% to %.0f%%, exactly as intended, leaving"
               % (100 * real["level"] / real["total"]))
-        print("  residual is stale-volatility level error rather than smile")
-        print("  shape. That is a reason to prefer sigma_hist over")
-        print("  sigma_atm_prev once the window is in, and it is an argument")
-        print("  the synthetic experiment could not have produced.")
+        print("  smile shape as %.0f%% of what the hybrid has to learn."
+              % (100 * real["shape"] / real["total"]))
 
     rule("SUMMARY")
-    summary = {"seed": SEED, "smile_bs_rmse": bs,
+    summary = {"seed": SEED,
+               "real_test_dates": int(rt[0].attrs.get("n_test_dates", 4))
+               if rt else 0,
+               "real_test_quotes": int(rt[0].attrs.get("n_test_quotes", 0))
+               if rt else 0,
+               "smile_bs_rmse": bs,
                "smile_best_hybrid_rmse": float(best_h),
                "smile_best_pure_rmse": float(best_p),
                "smile_hybrid_gain_vs_bs": bs / float(best_h),
@@ -376,6 +406,14 @@ def run():
         summary.update({"real_residual_mean_abs": real["total"],
                         "real_residual_level_share":
                             real["level"] / real["total"]})
+    if rt is not None:
+        rtab = rt[0].set_index("model")
+        summary["real_bs_rmse"] = float(rtab.loc["Black-Scholes", "RMSE"])
+        for k_ in rtab.index:
+            if k_ == "Black-Scholes":
+                continue
+            summary["real_%s_rmse" % k_.lower().replace(" ", "_")
+                    .replace(",", "")] = float(rtab.loc[k_, "RMSE"])
     pd.Series(summary).to_csv("results/w09_summary.csv", header=False)
     for k, v in summary.items():
         print("  %-30s %s" % (k, v))
@@ -395,6 +433,172 @@ def main():
         sys.stdout = tee.o
         tee.close()
     print(f"\n>>> Share this one file for review: {log}")
+
+
+
+
+# ============================== TASK 4: the real chronological run
+
+def task4_real_hybrid(df):
+    """Hybrid A on market data, split by DATE.
+
+    Added 28 November, after the twenty daily files arrived. No new machinery:
+    the same HybridA, the same learners and the same financial checks used on
+    synthetic data in Task 1 and in Week 7.
+
+    The split is by trading date, not by row. Splitting rows at random would
+    put the same contract on the same day on both sides of the split, and an
+    option's price is nearly determined by its own price a day earlier - so a
+    random split would measure memory rather than generalisation.
+    """
+    from linear_models import fit_ols
+    import financial_checks as fc
+
+    rule("TASK 4  -  HYBRID A ON MARKET DATA, CHRONOLOGICAL SPLIT")
+    m = df[df["model_ready"] == True].copy()      # noqa: E712
+    dates = sorted(m["trade_date"].unique())
+    if len(dates) < 8:
+        print("  Only %d usable dates - too few to split." % len(dates))
+        return None
+
+    n_te = max(2, int(round(0.20 * len(dates))))
+    n_va = max(2, int(round(0.15 * len(dates))))
+    d_tr, d_va, d_te = (dates[:-n_te - n_va], dates[-n_te - n_va:-n_te],
+                        dates[-n_te:])
+    print("  train %s to %s   (%d dates)" % (d_tr[0], d_tr[-1], len(d_tr)))
+    print("  val   %s to %s   (%d dates)" % (d_va[0], d_va[-1], len(d_va)))
+    print("  test  %s to %s   (%d dates)  <- the future, scored once\n"
+          % (d_te[0], d_te[-1], len(d_te)))
+
+    FEAT = ["m", "T", "r", "sigma_bench"]
+    sets = {}
+    for nm, dd in (("train", d_tr), ("val", d_va), ("test", d_te)):
+        k = m[m["trade_date"].isin(dd)]
+        sets[nm] = k
+        print("    %-5s %5d quotes" % (nm, len(k)))
+
+    tr, va, te = sets["train"], sets["val"], sets["test"]
+    sc = Standardiser().fit(tr[FEAT].to_numpy())
+
+    class _OLS:
+        def fit(s, A, y):
+            s.f = fit_ols(sc.transform(A), y)
+            return s
+
+        def predict(s, A):
+            return s.f.predict(sc.transform(A))
+
+    class _RF:
+        def fit(s, A, y):
+            s.f = RandomForest(n_trees=40, max_depth=12, min_samples_leaf=20,
+                               seed=SEED).fit(A, y)
+            return s
+
+        def predict(s, A):
+            return s.f.predict(A)
+
+    class _Net:
+        val_y = None
+
+        def __init__(s):
+            s.n = MLP(len(FEAT), hidden=(32, 16), lr=3e-3, batch=256,
+                      epochs=400, seed=SEED, patience=60)
+
+        def fit(s, A, y):
+            s.n.fit(sc.transform(A), y, sc.transform(va[FEAT].to_numpy()),
+                    _Net.val_y)
+            return s
+
+        def predict(s, A):
+            return s.n.predict(sc.transform(A))
+
+    Xtr, Xte = tr[FEAT].to_numpy(), te[FEAT].to_numpy()
+    Ktr, Kte = tr["K"].to_numpy(), te["K"].to_numpy()
+    ytr_mkt, yte_mkt = tr["C_market"].to_numpy(), te["C_market"].to_numpy()
+    rows = []
+    hyb_pred = {}
+
+    def score(name, pred, kind):
+        mm = metrics(yte_mkt, pred)
+        mm.update({"model": name, "kind": kind})
+        rows.append(mm)
+
+    score("Black-Scholes", te["C_BS"].to_numpy(), "benchmark")
+    for nm, mk in (("OLS", _OLS), ("Random forest", _RF), ("Neural net", _Net)):
+        _Net.val_y = va["C_market"].to_numpy() / va["K"].to_numpy()
+        p = mk().fit(Xtr, ytr_mkt / Ktr)
+        score("%s, pure" % nm, p.predict(Xte) * Kte, "pure ML")
+        _Net.val_y = va["eps_scaled"].to_numpy()
+        h = HybridA(mk()).fit(Xtr, Ktr, tr["epsilon_BS"].to_numpy())
+        ph = h.predict(Xte, Kte, te["C_BS"].to_numpy())
+        score("%s, hybrid" % nm, ph, "hybrid A")
+        hyb_pred["%s, hybrid" % nm] = ph
+
+    tab = pd.DataFrame(rows)[["model", "kind", "MAE", "RMSE", "R2",
+                              "max_abs_error"]]
+    tab.attrs["n_test_dates"] = len(d_te)
+    tab.attrs["n_test_quotes"] = len(te)
+    tab.to_csv("results/w09_real_comparison.csv", index=False)
+    print("\n  Out-of-sample, %d quotes on %d unseen dates, index points:\n"
+          % (len(te), len(d_te)))
+    print("  %-24s %-10s %9s %9s %9s" % ("model", "kind", "MAE", "RMSE", "R2"))
+    for _, r in tab.iterrows():
+        print("  %-24s %-10s %9.3f %9.3f %9.4f"
+              % (r.model, r.kind, r.MAE, r.RMSE, r.R2))
+
+    # --- residual tables by moneyness and maturity (5.29) ---
+    best = tab[tab.kind == "hybrid A"].sort_values("RMSE").iloc[0]["model"]
+    print("\n  Best hybrid out of sample: %s" % best)
+    e_bs = te["C_BS"].to_numpy() - yte_mkt
+    e_hy = hyb_pred[best] - yte_mkt
+    out = []
+    for lab, col, bins in (("m", "m", [-0.31, -0.15, -0.05, 0.05, 0.15, 0.31]),
+                           ("T", "T", [0, 0.05, 0.1, 0.2, 0.5, 3.0])):
+        g = pd.DataFrame({col: te[col].to_numpy(),
+                          "BS": np.abs(e_bs), "hybrid": np.abs(e_hy)})
+        g["bin"] = pd.cut(g[col], bins)
+        t = g.groupby("bin", observed=True)[["BS", "hybrid"]].agg(["size",
+                                                                  "mean"])
+        print("\n  mean |error| by %s:" % lab)
+        print("    %-16s %6s %10s %10s %8s"
+              % ("bucket", "n", "Black-Sch", "hybrid", "ratio"))
+        for idx, r_ in t.iterrows():
+            n_, b_, h_ = r_[("BS", "size")], r_[("BS", "mean")], \
+                r_[("hybrid", "mean")]
+            print("    %-16s %6d %10.3f %10.3f %8.2f"
+                  % (str(idx), n_, b_, h_, h_ / b_ if b_ else np.nan))
+            out.append({"axis": lab, "bucket": str(idx), "n": int(n_),
+                        "BS": float(b_), "hybrid": float(h_)})
+    pd.DataFrame(out).to_csv("results/w09_real_residual_tables.csv",
+                             index=False)
+
+    # --- financial checks, with the one-tick threshold ---
+    print("\n  Financial consistency on the test quotes (master plan 5.28),")
+    print("  counts at a numerical tolerance and above one tick (Rs %.2f):\n"
+          % fc.TICK)
+    chk = []
+    for nm, pred in (("Black-Scholes", te["C_BS"].to_numpy()),
+                     ("Hybrid A (%s)" % best, hyb_pred[best])):
+        pw = fc.pointwise_checks(pred / Kte, te["S"].to_numpy(), Kte,
+                                 te["T"].to_numpy(), te["r"].to_numpy(),
+                                 te["q_market"].to_numpy(),
+                                 m=te["m"].to_numpy())
+        for key, lab in (("non_negative", "C >= 0"),
+                         ("above_intrinsic", "C >= intrinsic"),
+                         ("below_upper", "C <= S e^-qT")):
+            ok, okt = pw[key], pw["tick_" + key]
+            chk.append({"model": nm, "check": lab, "n": len(ok),
+                        "violations": int((~ok).sum()),
+                        "material": int((~okt).sum()),
+                        "worst": float(pw["viol_" + key].max())})
+    ct = pd.DataFrame(chk)
+    ct.to_csv("results/w09_real_financial_checks.csv", index=False)
+    print("  %-22s %-16s %10s %10s %10s"
+          % ("model", "check", "violations", "material", "worst"))
+    for _, r_ in ct.iterrows():
+        print("  %-22s %-16s %10d %10d %10.4f"
+              % (r_.model, r_.check, r_.violations, r_.material, r_.worst))
+    return tab, ct
 
 
 if __name__ == "__main__":

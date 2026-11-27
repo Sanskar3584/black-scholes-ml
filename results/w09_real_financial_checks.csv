@@ -1,0 +1,7 @@
+model,check,n,violations,material,worst
+Black-Scholes,C >= 0,2295,0,0,0.0
+Black-Scholes,C >= intrinsic,2295,4,4,17.640535628892394
+Black-Scholes,C <= S e^-qT,2295,0,0,0.0
+"Hybrid A (Random forest, hybrid)",C >= 0,2295,2,2,38.34745465790119
+"Hybrid A (Random forest, hybrid)",C >= intrinsic,2295,2,2,38.34745465790119
+"Hybrid A (Random forest, hybrid)",C <= S e^-qT,2295,0,0,0.0

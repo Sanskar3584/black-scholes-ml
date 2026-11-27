@@ -307,12 +307,17 @@ def main(argv):
     n_dates = out["trade_date"].nunique()
     print("    %d trading date%s in the cleaned file."
           % (n_dates, "" if n_dates == 1 else "s"))
-    if n_dates < 40:
-        print("    The specification asks for twelve months sampled weekly,")
-        print("    about 60 files. This is %d. The chronological split of" % n_dates)
-        print("    ML_experiment_plan.md 3.3 needs enough distinct dates to")
-        print("    cut into train, validation and test without the three")
-        print("    sharing an expiry, so modelling waits for the window.")
+    # Revised 27 Nov: the window is 15-20 CONSECUTIVE DAILY files, not twelve
+    # months sampled weekly. Daily sampling is what keeps sigma_atm_prev one
+    # day old instead of a week, which is the finding in the Week 8 report.
+    if n_dates < 12:
+        print("    The revised specification asks for 15 to 20 consecutive")
+        print("    daily files. This is %d, which is too few to cut into" % n_dates)
+        print("    train, validation and test chronologically.")
+    else:
+        print("    The revised specification asks for 15 to 20 consecutive")
+        print("    daily files; this meets it. A chronological split is")
+        print("    possible, holding out the latest dates for test.")
     return out
 
 

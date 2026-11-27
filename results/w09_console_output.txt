@@ -50,34 +50,50 @@ TASK 2  -  THE REAL-DATA PATH
 ==============================================================================
 BUILDING THE REAL-DATA MODELLING SET
 ==============================================================================
-  1198 clean quotes, 2 trading date(s), 15 expiries
-  implied volatility recovered on 1198 of 1198 rows (100.0%)
-    range 11.6% to 39.0%, median 15.8%
-    solver: {'newton': 1198}
+  11147 clean quotes, 20 trading date(s), 19 expiries
+  implied volatility recovered on 11147 of 11147 rows (100.0%)
+    range 10.6% to 41.3%, median 15.2%
+    solver: {'newton': 11147}
+
+  sigma_hist (21-day realised, lagged one day):
+    available on 11147 of 11147 rows; range 13.7% to 17.6%
 
   benchmark volatility (previous date, same expiry, ATM):
-    available on 531 of 1198 rows (44.3%)
-      2026-11-13   580 rows, benchmark on    0
-      2026-11-23   618 rows, benchmark on  531
+    available on 10264 of 11147 rows (92.1%)
+      2026-10-28   471 rows, benchmark on    0
+      2026-10-29   494 rows, benchmark on  470
+      2026-10-30   485 rows, benchmark on  476
+      2026-11-02   499 rows, benchmark on  485
+      2026-11-03   488 rows, benchmark on  484
+      2026-11-04   522 rows, benchmark on  492
+      2026-11-05   581 rows, benchmark on  557
+      2026-11-06   640 rows, benchmark on  632
+      2026-11-09   611 rows, benchmark on  603
+      2026-11-11   605 rows, benchmark on  578
+      2026-11-12   582 rows, benchmark on  565
+      2026-11-13   580 rows, benchmark on  563
+      2026-11-16   554 rows, benchmark on  538
+      2026-11-17   519 rows, benchmark on  498
+      2026-11-18   539 rows, benchmark on  489
+      2026-11-19   558 rows, benchmark on  539
+      2026-11-20   604 rows, benchmark on  585
+      2026-11-23   618 rows, benchmark on  592
+      2026-11-25   579 rows, benchmark on  535
+      2026-11-26   618 rows, benchmark on  583
 
-  Black-Scholes residual on the 531 model-ready rows:
-    mean +37.826, mean |eps| 37.905, max |eps| 249.523 index points
-    mean |eps| / price = 23.26%
+  Black-Scholes residual on the 10264 model-ready rows:
+    mean +15.157, mean |eps| 23.883, max |eps| 445.300 index points
+    mean |eps| / price = 10.15%
     This is the quantity Hybrid A learns. It is NOT zero,
     which is the point: yesterday's at-the-money volatility
     cannot price today's whole smile.
 
-  wrote data/real_option_dataset.csv  (1198 rows, 30 columns)
+  wrote data/real_option_dataset.csv  (11147 rows, 30 columns)
 
-  sigma_hist is blank: cache ends 2024-12-31, option data starts 2026-11-13
-  Fix with one line in week1.py (END_DATE) and a re-run,
-  on a machine with network access.
-
-  NOT YET A MODELLING SET. 2 trading dates against the
-  twelve months sampled weekly the specification asks for.
-  The benchmark needs a PRIOR date for the same expiry, so
-  the first date in any sample can never be model-ready -
-  with two dates that costs half the data.
+  MODELLING SET READY. 20 consecutive trading dates.
+  The first date can never be model-ready, since the
+  benchmark needs a prior date for the same expiry; over
+  20 dates that costs under 6% of the sample.
 
 ==============================================================================
 TASK 3  -  WHAT THE REAL RESIDUAL IS MADE OF
@@ -86,21 +102,39 @@ TASK 3  -  WHAT THE REAL RESIDUAL IS MADE OF
   so the residual contains two different things. Repricing with
   TODAY's at-the-money volatility isolates them.
 
-    total residual        mean |eps|   37.90 index points
-      level part            23.97  (63%)  stale volatility
-      shape part            13.94  (37%)  the smile itself
-    residual is 99% one-sided
+    total residual        mean |eps|   23.22 index points
+      level part             3.34  (14%)  stale volatility
+      shape part            19.88  (86%)  the smile itself
+    residual is 75% one-sided
 
   Median at-the-money implied volatility by date:
+    2026-10-28   15.08%
+    2026-10-29   13.74%
+    2026-10-30   13.78%
+    2026-11-02   13.88%
+    2026-11-03   13.50%
+    2026-11-04   13.05%
+    2026-11-05   13.24%
+    2026-11-06   14.58%
+    2026-11-09   15.21%
+    2026-11-11   15.27%
+    2026-11-12   14.77%
     2026-11-13   13.75%
+    2026-11-16   14.01%
+    2026-11-17   13.49%
+    2026-11-18   13.75%
+    2026-11-19   13.21%
+    2026-11-20   14.24%
     2026-11-23   15.76%
-    moved +2.01 points over the 10-day gap.
+    2026-11-25   15.31%
+    2026-11-26   14.69%
+    moved -0.39 points over the 10-day gap.
 
   THIS IS A FINDING ABOUT THE SAMPLING CADENCE, NOT ABOUT NIFTY.
   sigma_atm_prev goes stale at exactly the rate the sample is
   thinned. With weekly files the benchmark is a week old, and the
   volatility LEVEL move over that week swamps the smile shape -
-  63% against 37% here. Master plan 5.5 asks the model to
+  14% against 86% here. Master plan 5.5 asks the model to
   learn 'only the systematic part of the model error'. A level
   move over a week is the UNsystematic part: it is roughly a
   random walk, and no function of [m, T, r] can predict it.
@@ -109,6 +143,57 @@ TASK 3  -  WHAT THE REAL RESIDUAL IS MADE OF
   daily NIFTY close series, which is complete regardless of how
   often the option files are sampled. That makes the week1.py
   re-run a design requirement rather than a missing column.
+
+==============================================================================
+TASK 4  -  HYBRID A ON MARKET DATA, CHRONOLOGICAL SPLIT
+==============================================================================
+  train 2026-10-29 to 2026-11-16   (12 dates)
+  val   2026-11-17 to 2026-11-19   (3 dates)
+  test  2026-11-20 to 2026-11-26   (4 dates)  <- the future, scored once
+
+    train  6443 quotes
+    val    1526 quotes
+    test   2295 quotes
+
+  Out-of-sample, 2295 quotes on 4 unseen dates, index points:
+
+  model                    kind             MAE      RMSE        R2
+  Black-Scholes            benchmark     22.354    35.002    0.9993
+  OLS, pure                pure ML      333.843   473.472    0.8663
+  OLS, hybrid              hybrid A      19.111    28.655    0.9995
+  Random forest, pure      pure ML       46.079   116.853    0.9919
+  Random forest, hybrid    hybrid A      17.432    27.332    0.9996
+  Neural net, pure         pure ML      132.690   239.542    0.9658
+  Neural net, hybrid       hybrid A      88.292   150.927    0.9864
+
+  Best hybrid out of sample: Random forest, hybrid
+
+  mean |error| by m:
+    bucket                n  Black-Sch     hybrid    ratio
+    (-0.31, -0.15]       13     22.009     21.345     0.97
+    (-0.15, -0.05]      316     10.976     12.038     1.10
+    (-0.05, 0.05]      1186     22.047     21.188     0.96
+    (0.05, 0.15]        634     25.165     11.689     0.46
+    (0.15, 0.31]        146     37.297     23.192     0.62
+
+  mean |error| by T:
+    bucket                n  Black-Sch     hybrid    ratio
+    (0.0, 0.05]         520     16.153     12.903     0.80
+    (0.05, 0.1]        1029     18.159     12.268     0.68
+    (0.1, 0.2]          589     24.389     20.218     0.83
+    (0.2, 0.5]           84     21.939     48.321     2.20
+    (0.5, 3.0]           60    116.221     51.318     0.44
+
+  Financial consistency on the test quotes (master plan 5.28),
+  counts at a numerical tolerance and above one tick (Rs 0.05):
+
+  model                  check            violations   material      worst
+  Black-Scholes          C >= 0                    0          0     0.0000
+  Black-Scholes          C >= intrinsic            4          4    17.6405
+  Black-Scholes          C <= S e^-qT              0          0     0.0000
+  Hybrid A (Random forest, hybrid) C >= 0                    2          2    38.3475
+  Hybrid A (Random forest, hybrid) C >= intrinsic            2          2    38.3475
+  Hybrid A (Random forest, hybrid) C <= S e^-qT              0          0     0.0000
 
 ==============================================================================
 FIGURES  ->  ml_plots/
@@ -126,31 +211,51 @@ CHECKPOINT
   with the same learners. Black-Scholes supplies the structure;
   the model supplies only what the formula misses.
 
-  ON REAL DATA, NOT YET ANSWERABLE. 2 trading dates, of which the
-  first cannot be model-ready because the benchmark needs a prior
-  date. 531 usable quotes is not a dataset, and with one date
-  there is no chronological split to speak of.
+  ON REAL DATA, ALSO YES - out of sample, on dates the models
+  never saw. Black-Scholes 35.00, best hybrid 27.33 (Random forest, hybrid):
+  a 22% reduction in RMSE on 2295 quotes over 4 held-out dates.
+  The hybrid beats Black-Scholes in 4 of 5 moneyness buckets and
+  4 of 5 maturity buckets, so the gain is not one region.
 
-  What the two dates DO establish is that 63% of the real
-  residual is stale-volatility level error rather than smile
-  shape. That is a reason to prefer sigma_hist over
-  sigma_atm_prev once the window is in, and it is an argument
-  the synthetic experiment could not have produced.
+  PURE MACHINE LEARNING FAILS ON THE SAME DATA: the best pure
+  model reaches only 116.9 against the benchmark's 35.00. Without
+  Black-Scholes to supply the structure, 6,443 training quotes
+  are nowhere near enough to learn a pricing surface.
+
+  AND THE RANKING INVERTS FROM THE SYNTHETIC CASE. The network
+  was the best hybrid on synthetic data (0.057) and is the worst
+  here (150.9); the forest and even OLS generalise better. On a
+  noiseless target capacity wins; on 12 dates of noisy market
+  quotes it overfits. That is the clearest argument in the whole
+  project for validating on the data you actually have.
+
+  On the residual itself: daily files cut the stale-volatility
+  component from 63% to 14%, exactly as intended, leaving
+  smile shape as 86% of what the hybrid has to learn.
 
 ==============================================================================
 SUMMARY
 ==============================================================================
   seed                           20260825
+  real_test_dates                4
+  real_test_quotes               2295
   smile_bs_rmse                  1.4218202971093052
   smile_best_hybrid_rmse         0.05717435536986964
   smile_best_pure_rmse           0.1634591656905921
   smile_hybrid_gain_vs_bs        24.86814740474698
-  real_trading_dates             2
-  real_clean_quotes              1198
-  real_model_ready               531
-  real_residual_mean_abs         37.9046935057164
-  real_residual_level_share      0.6322793807759459
+  real_trading_dates             20
+  real_clean_quotes              11147
+  real_model_ready               10264
+  real_residual_mean_abs         23.216956172597463
+  real_residual_level_share      0.1437598345297581
+  real_bs_rmse                   35.00167667797384
+  real_ols_pure_rmse             473.47172886369157
+  real_ols_hybrid_rmse           28.654825983604816
+  real_random_forest_pure_rmse   116.85260822702303
+  real_random_forest_hybrid_rmse 27.331786956481967
+  real_neural_net_pure_rmse      239.54239088542593
+  real_neural_net_hybrid_rmse    150.92716952299077
 
-  runtime 35.4 s
+  runtime 46.3 s
 
 Full console output written to: results/w09_console_output.txt
